@@ -1,0 +1,1527 @@
+#Load packages
+library(microDecon)
+library(readxl)
+library(readr)
+library(vegan)
+library(seqinr)
+library(dplyr)
+library(phyloseq)
+###Read file to work
+taxa.silva <- read_excel("taxa.silva.xlsx")
+###Clean data
+clean.16S <- decon(data = as.data.frame(taxa.silva),numb.blanks=12,numb.ind=66,taxa=F)
+clean.16S<-clean.16S$decon.table
+clean.16S<-clean.16S[,-2]
+dim(clean.16S)
+
+#Data Preparation for Analysis
+namesTax <-c("OTU_ID")
+Tax <- clean.16S[,namesTax]
+Bac2 <- t(clean.16S[,!colnames(clean.16S)%in%namesTax])
+colnames(Bac2)<-Tax
+Bac2 <- Bac2[order(row.names(Bac2)),]
+dim(Bac2)
+
+#Data Filtering
+N <- apply(I(Bac2>0), 2, sum)
+range(N)
+rarefaction <- Bac2[, N>0] 
+dim(rarefaction)
+
+#Singleton Removal and Additional Filter
+Bac2 <- Bac2[, N>1]
+dim(Bac2)
+df <- Bac2[,apply( Bac2, 2, function(x) sum( x>0)) > 1] 
+dim(df)
+
+#Rarefaction curves
+S <- specnumber(rarefaction)
+(raremax <- min(rowSums(rarefaction)))
+Srare <- rarefy(rarefaction, raremax)
+plot(S, Srare, xlab = "Observed No. of ASV", ylab = "Rarefied No. of ASV")
+abline(0, 1)
+rarecurve(rarefaction, step = 20, col = "#404788FF", main="Rarefaction Curves 16S", ylab="ASV Observed", cex=0.8)
+
+names=colnames(df)
+#REad file taxa.silva.txt 
+table<-read.table("taxa.silva.txt", header = T, sep="\t")
+table<-table[,1:2]
+names=colnames(df)
+#Filter table to keep only rows with ASVs present in df
+filtered_data <- filter(table, ASV %in% names)
+write.fasta(sequences =as.list(filtered_data[,1]),names= filtered_data[,2],file.out = "silva.fasta")
+##Read FASTA silva.fasta
+silva<-read.fasta(file="silva.fasta", as.string = TRUE, forceDNAtolower = TRUE)
+
+silva.2<-as.SeqFastadna(silva)
+is.SeqFastadna(silva.2)
+summary(silva.2[[2]])
+
+#Filters out sequences with length greater than 350.
+f1 <- silva.2[which(lapply(silva.2, function(x) summary(x)$length) > 350)]
+#Filters out sequences with length less than 270.
+f2 <- silva.2[which(lapply(silva.2, function(x) summary(x)$length) < 270)]
+
+#Make relative
+library(funrar)
+##Convert df to relative values
+rel_table<-make_relative(df)
+rel_table<-t(rel_table)
+#Save file
+write.csv(rel_table,file="rel_table16S")
+df<-t(df)
+#Save file
+write.csv(df,file="table16S")
+
+#Preparation for Further Analysis
+table<-read.table("taxa.silva.txt", header = T, sep="\t")
+Reads <- read_xlsx("table16S.xlsx")
+colnames(Reads)
+Reads<-Reads[,-1]
+tax<-table[,c(2, 84:89)]
+
+d <- read_xlsx("table16S.xlsx")
+dim(d)
+#Dataframe containing the environmental variables
+env<-read.csv("Env.csv")
+#Select the specific columns from the dataframe d to store in tax
+tax<-d[,c(1,68:73)]
+##Select the columns from dataframe d with abundance readings for each ASV
+reads<-d[,c(1:67)]
+colnames(reads)
+
+#Assign the reads object (ASV abundance table) to the asv_mat variable
+asv_mat<- reads
+#Assign the tax object (taxonomy table) to the tax_mat variable
+tax_mat<- tax
+#Assign the env object (environmental or sample information) to the samples_df variable
+samples_df <- env
+
+#convert to dataframe
+asv_mat <- as.data.frame(asv_mat)
+tax_mat <- as.data.frame(tax_mat)
+
+# Setting row names and converting data frames to matrices
+row.names(asv_mat) <- asv_mat$ASV
+asv_mat <- asv_mat%>% select (-ASV) 
+row.names(tax_mat) <- tax_mat$ASV
+
+tax_mat <- tax_mat%>% select (-ASV) 
+row.names(samples_df) <- samples_df$ID
+samples_df <- samples_df %>% select (-ID) 
+
+asv_mat <- as.matrix(asv_mat)
+tax_mat <- as.matrix(tax_mat)
+#Creating Objects for phyloseq
+ASV = otu_table(asv_mat, taxa_are_rows = TRUE)
+TAX = tax_table(tax_mat)
+samples = sample_data(samples_df)
+#Create phyloseq Object
+Bac_16S <- phyloseq(ASV, TAX, samples)
+#Subset
+Bac_16S<-Bac_16S %>% subset_taxa(Order != "Chloroplast")     
+
+#############-------------Alpha diversty-----------------####################
+library(ggplot2)
+library(phyloseq)
+library(dplyr)
+library(patchwork)
+#Subset data
+subset<-subset_samples(Bac_16S,  Type != "Sea_Water"  )
+sample_sums(subset)
+#Rarefy data 
+rarefied<-rarefy_even_depth(subset, sample.size = min(sample_sums(subset)),
+                            replace = FALSE,verbose = TRUE, rngseed = TRUE)
+sample_sums(rarefied)
+otu_table(rarefied)
+
+#calculated alpha diversity (Chao1)) to make basic plot with ggplot
+p<-plot_richness(rarefied, x="Type", measures=c("Chao1"))+
+  geom_boxplot(alpha=1)+
+  theme(strip.text.x= element_text(size=18),
+        axis.text.y.left = element_text(size = 15),
+        axis.title.x = element_text(size = 15),
+        axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1),
+        axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))
+
+newSTorder = c("Apical","Sporophylls")
+p$data$Type <- as.character(p$data$Type)
+p$data$Type <- factor(p$data$Type, levels=newSTorder)
+print(p)
+
+#Sort by Type
+p$data$Type <- factor(p$data$Type, levels = c("Apical", "Sporophylls"))
+
+p1<-plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
+  geom_boxplot(aes(fill = Type), alpha = 0.7, outlier.shape = NA) +
+  facet_wrap(~Type, nrow = 1) +
+  scale_fill_manual(values = c("Apical" = "#C0FF3E", "Sporophylls" = "#698B22")) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 20),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 18),
+    legend.position = "none"
+  ) +
+  ylab("Alpha diversity measure")
+
+#Sort by Site
+sample_data(rarefied)$Site <- factor(sample_data(rarefied)$Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))
+p2<- plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
+  geom_boxplot(aes(fill = Site), alpha = 0.7, outlier.shape = NA) +
+  facet_wrap(~Site, nrow = 1) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 20),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 18),
+    legend.position = "none"
+  ) +
+  ylab("")
+
+#Nonparametrical analysis
+kruskal.test(value ~ Site, data = p$data)
+kruskal.test(value ~ Date, data = p$data)
+kruskal.test(value ~ Type, data = p$data)
+#Post hoc
+pairwise.wilcox.test(p$data$value, p$data$Site, p.adjust.method = "holm")
+#Diversity by date
+p$data %>%
+  group_by(Date) %>%
+  summarise(
+    mean_diversity = mean(value),
+    median_diversity = median(value),
+    sd_diversity = sd(value),
+    n = n()
+  )
+
+#calculated alpha diversity (Shannon) to make basic plot with ggplot
+p<-plot_richness(subset, x="Type", measures=c("Shannon"))+
+  geom_boxplot(alpha=1)+
+  theme(strip.text.x= element_text(size=18),
+        axis.text.y.left = element_text(size = 15),
+        axis.title.x = element_text(size = 15),
+        axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1),
+        axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))
+newSTorder = c("Apical","Sporophylls")
+p$data$Type <- as.character(p$data$Type)
+p$data$Type <- factor(p$data$Type, levels=newSTorder)
+print(p)
+
+#Sort by Type
+p$data$Type <- factor(p$data$Type, levels = c("Apical", "Sporophylls"))
+p3<- plot_richness(subset, x = "Date", measures = c("Shannon")) +
+  geom_boxplot(aes(fill = Type), alpha = 0.7, outlier.shape = NA) +
+  facet_wrap(~Type, nrow = 1) +
+  scale_fill_manual(values = c("Apical" = "#C0FF3E", "Sporophylls" = "#698B22")) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(size = 20, angle = 45, hjust = 1),  
+    axis.text.y = element_text(size = 16),                         
+    strip.text = element_text(size = 20),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 18),
+    legend.position = "none"
+  ) +
+  ylab("Alpha diversity measure")
+
+#Sort by Site
+sample_data(subset)$Site <- factor(sample_data(subset)$Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))
+p4 <-plot_richness(subset, x = "Date", measures = c("Shannon")) +
+  geom_boxplot(aes(fill = Site), alpha = 0.7, outlier.shape = NA) +
+  facet_wrap(~Site, nrow = 1) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(size = 20, angle = 45, hjust = 1),  
+    axis.text.y = element_text(size = 16),                         
+    strip.text = element_text(size = 20),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 18),
+    legend.position = "none"
+  ) +
+  ylab("")
+
+#Nonparametrical analysis
+kruskal.test(value ~ Site, data = p$data)
+kruskal.test(value ~ Date, data = p$data)
+kruskal.test(value ~ Type, data = p$data)
+#Post hoc
+pairwise.wilcox.test(p$data$value, p$data$Site, p.adjust.method = "holm")
+#Diversity by date
+p$data %>%
+  group_by(Date) %>%
+  summarise(
+    mean_diversity = mean(value),
+    median_diversity = median(value),
+    sd_diversity = sd(value),
+    n = n()
+  )
+
+#Final plot Chao1 + Shannon
+final_plot <- (p1 | p2) /
+  (p3 | p4)
+print(final_plot)
+
+p1 <- p1 + theme(axis.text.x = element_blank())
+p2 <- p2 + theme(axis.text.x = element_blank())
+
+p3 <- p3 + theme(strip.text.x = element_blank()) 
+p4 <- p4 + theme(axis.title.x = element_blank(), strip.text.x = element_blank())
+
+p1 <- p1 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.95))  # (x, y) entre 0 y 1)
+p2 <- p2 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.01, 0.95)) 
+p3 <- p3 + labs(tag = "C") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98)) 
+p4 <- p4 + labs(tag = "D") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.01, 0.98)) 
+
+final_plot <- (p1 | p2) / (p3 | p4)
+print(final_plot)
+
+#############-------------Figures-----------------####################
+###Phylum----
+phylumabundance <- Bac_16S %>%
+  tax_glom(taxrank = "Phylum")%>%                     # agglomerate at genus level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
+  psmelt() %>%                                         # Melt to long format
+  arrange(Phylum) 
+head(phylumabundance)
+
+all <- phylumabundance %>%
+  filter( Type != "Sea_Water") %>%
+  select(Phylum, Type, Date, Abundance) %>%
+  group_by(Phylum, Type, Date) %>%
+  summarize(avg_abundance = mean(Abundance), .groups = "drop") %>%
+  filter(avg_abundance >= 0.05)
+
+head(all)
+
+my_theme <- theme(
+  axis.text.y.left = element_text(size = 14),
+  axis.title.y = element_text(size = 16),
+  axis.text.x = element_text(size = 18, vjust = 1, hjust = 1, angle = 45),
+  title = element_text(size = 16),
+  legend.text = element_text(size = 16),
+  strip.text.x = element_text(size = 15)
+)
+colors=c(Actinobacteriota="#E7EBFA", Bacteroidota="#8470FF",Campylobacterota="pink",	
+         Planctomycetota="#EE7600",	Proteobacteria="#CD1076",Verrucomicrobiota="#FF0000")
+
+p5<-ggplot(all) +
+  geom_col(aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Phylum
+  ),
+  position = "fill",
+  show.legend = FALSE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  facet_grid(. ~ factor(Type, levels = c("Apical", "Sporophylls"))) +
+  theme(
+    axis.text.y.left = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12, vjust = 1, hjust = 1, angle = 45),
+    title = element_text(size = 12),
+    legend.text = element_text(size = 12),
+    strip.text.x = element_text(size = 15)
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors, drop = FALSE) +
+  my_theme
+
+p5<-ggplot(all) +
+  geom_col(aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Phylum
+  ),
+  position = "fill",
+  show.legend = FALSE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  facet_grid(. ~ factor(Type, levels = c("Apical", "Sporophylls"))) +
+  theme(
+    axis.text.y.left = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12, vjust = 1, hjust = 1, angle = 45),
+    title = element_text(size = 12),
+    legend.text = element_text(size = 12),
+    strip.text.x = element_text(size = 15)
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors, drop = FALSE) +
+  my_theme
+
+all_sitio <- phylumabundance %>%
+  filter(Type != "Sea_Water") %>%
+  select(Phylum, Site, Date, Abundance) %>%
+  group_by(Phylum, Site, Date) %>%
+  summarize(avg_abundance = mean(Abundance), .groups = "drop") %>%
+  filter(avg_abundance >= 0.05)
+p6<-ggplot(filter(all_sitio)) +
+  geom_col(mapping = aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Phylum
+  ),
+  position = "fill",
+  show.legend = TRUE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("") +
+  xlab("") +
+  facet_grid(. ~ factor(Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))) + 
+  theme(
+    axis.text.y.left = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 18, vjust = 1, hjust = 1, angle = 45),
+    title = element_text(size = 12),
+    legend.text = element_text(size = 18),
+    strip.text.x = element_text(size = 15)
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors) +
+  my_theme
+p5 <- p5 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"),plot.tag.position = c(0.03, 0.98))
+p6<- p6 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98))
+filo_plot <- (p5 | p6) 
+filo_plot
+
+#Phylum water
+all_water <- phylumabundance %>%
+  filter( Type != "Apical", Type != "Sporophylls") %>%
+  select(Phylum, Type, Date, Abundance) %>%
+  group_by(Phylum, Type, Date) %>%
+  summarize(avg_abundance = mean(Abundance), .groups = "drop") %>%
+  filter(avg_abundance >= 0.05)
+
+head(all_water)
+
+my_theme <- theme(
+  axis.text.y.left = element_text(size = 14),
+  axis.title.y = element_text(size = 16),
+  axis.text.x = element_text(size = 18, vjust = 1, hjust = 1, angle = 45),
+  title = element_text(size = 16),
+  legend.text = element_text(size = 16),
+  strip.text.x = element_text(size = 15)
+)
+
+colors=c(Actinobacteriota="#E7EBFA", Bacteroidota="#8470FF",Crenarchaeota="pink",Cyanobacteria="#00CED1",	
+         Planctomycetota="#EE7600",	Proteobacteria="#CD1076",Verrucomicrobiota="#FF0000")
+
+# Gráfico final
+w5<-ggplot(all_water) +
+  geom_col(aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Phylum
+  ),
+  position = "fill",
+  show.legend = FALSE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  facet_grid(. ~ factor(Type, levels = c( "Sea_Water"))) +
+  theme(
+    axis.text.y.left = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12, vjust = 1, hjust = 1, angle = 45),
+    title = element_text(size = 12),
+    legend.text = element_text(size = 12),
+    strip.text.x = element_text(size = 15)
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors, drop = FALSE) +
+  my_theme
+
+all_sitio_w <- phylumabundance %>%
+  filter(Type != "Apical", Type != "Sporophylls") %>%
+  select(Phylum, Site, Date, Abundance) %>%
+  group_by(Phylum, Site, Date) %>%
+  summarize(avg_abundance = mean(Abundance), .groups = "drop") %>%
+  filter(avg_abundance >= 0.05)
+w6<-ggplot(filter(all_sitio_w)) +
+  geom_col(mapping = aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Phylum
+  ),
+  position = "fill",
+  show.legend = TRUE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("") +
+  xlab("") +
+  facet_grid(. ~ factor(Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))) +  # facet por sitio
+  theme(
+    axis.text.y.left = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 18, vjust = 1, hjust = 1, angle = 45),
+    title = element_text(size = 12),
+    legend.text = element_text(size = 18),
+    strip.text.x = element_text(size = 15)
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors) +
+  my_theme
+p5 <- p5 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"),plot.tag.position = c(0.03, 0.98))
+p6<- p6 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98))
+w5 <- w5 + labs(tag = "C") + theme(plot.tag = element_text(size = 20, face = "bold"),plot.tag.position = c(0.03, 0.98))
+w6<- w6 + labs(tag = "D") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98))
+
+WSP<-(p5 | p6) / (w5 | w6)
+WSP
+###Class----
+
+abundance_class <- rarefied %>%
+  tax_glom(taxrank = "Class")%>%                     # agglomerate at genus level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
+  psmelt() %>%                                         # Melt to long format
+  arrange(Class) 
+head(abundance_class)
+write.csv(abundance_class, file="Classabundance.csv")
+
+all_class <- abundance_class %>%
+  filter(Type != "Sea_Water") %>%
+  select(Class,Type,Date,Abundance) %>%
+  group_by(Type, Date, Class) %>%
+  summarize(
+    avg_abundance = mean(Abundance)) %>%
+  filter(avg_abundance >= 0.05)
+head(all_class)
+write.csv(all_class,file="class.csv")
+
+unique(all_class$Class)
+
+colors4 <- c(Cyanobacteriia="#00CED1" ,Bacteroidia="navy", Verrucomicrobiae="#FF0000" ,Planctomycetes="#CAACCB",Campylobacteria="pink", 
+             Gammaproteobacteria="#882E72",Nitrososphaeria="#777777",Alphaproteobacteria="#008B00", 
+             Actinobacteria="lightgoldenrod1" )
+
+p7<-ggplot(all_class) +
+  geom_col(aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Class
+  ),
+  position = "fill",
+  show.legend = FALSE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  facet_grid(. ~ factor(Type, levels = c("Apical", "Sporophylls"))) +
+  my_theme+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors4, drop = FALSE) 
+
+
+all_class_sitio <- abundance_class %>%
+  filter(Type != "Sea_Water") %>%
+  select(Class,Site,Date,Abundance) %>%
+  group_by(Site, Date, Class) %>%
+  summarize(
+    avg_abundance = mean(Abundance)) %>%
+  filter(avg_abundance >= 0.05)
+head(all_class)
+
+p8<-ggplot(filter(all_class_sitio )) +
+  geom_col(mapping = aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Class
+  ),
+  position = "fill",
+  show.legend = TRUE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("") +
+  xlab("") +
+  facet_grid(. ~ factor(Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))) + 
+  my_theme +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors4)
+
+p7 <- p7 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"),plot.tag.position = c(0.03, 0.98))
+p8<- p8 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98))
+class_plot <- (p7 | p8) 
+class_plot
+
+###Order----
+orderabundance <- rarefied %>%
+  tax_glom(taxrank = "Order")%>%                     # agglomerate at genus level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
+  psmelt() %>%                                         # Melt to long format
+  arrange(Order) 
+head(orderabundance)
+write.csv(orderabundance, file="orderabundance.csv")
+
+all_order <- orderabundance %>%
+  filter(Type != "Sea_Water") %>%
+  select(Order,Type,Date,Abundance) %>%
+  group_by(Type, Date, Order) %>%
+  summarize(
+    avg_abundance = mean(Abundance)) %>%
+  filter(avg_abundance >= 0.05)
+head(all_order)
+write.csv(all_order,file="order.csv")
+
+unique(all_order$Order)
+
+colors5 <- c(Arenicellales="plum4",Caulobacterales="#CAACCB",Verrucomicrobiales="#FF0000", Enterobacterales="#882E72", Flavobacteriales="mediumpurple4",
+             Thiotrichales="lightgoldenrod1", Chitinophagales ="#BCEE68",Granulosicoccales="navy",Nitrosopumilales ="#DC050C", Phormidesmiales="#FF1493",
+             "SAR11 clade" ="#008B00",Campylobacterales="pink",  Pirellulales="#437DBF", Pseudomonadales="#521913", Bacteroidales = "#777777", Rhodobacterales="#4EB265", 
+             Synechococcales="#CAE0AB", Micrococcales = "#E7EBFA") #, Leptospirillales="#777777","goldenrod4",   Actinomarinales="#E7EBFA", "#A5170E", "#72190E""black",,"#E5702F"Cyanobacteriales ="#00CED1",)
+
+p9<-ggplot(all_order) +
+  geom_col(aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Order
+  ),
+  position = "fill",
+  show.legend = FALSE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("Relative abundance (%)") +
+  xlab("") +
+  facet_grid(. ~ factor(Type, levels = c("Apical", "Sporophylls"))) +
+  my_theme+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors5, drop = FALSE) 
+
+all_order_site <- orderabundance %>%
+  filter(Type != "Sea_Water") %>%
+  select(Order,Site,Date,Abundance) %>%
+  group_by(Site, Date, Order) %>%
+  summarize(
+    avg_abundance = mean(Abundance)) %>%
+  filter(avg_abundance >= 0.05)
+head(all_order)
+
+colors5 <- c(Arenicellales="plum4",Caulobacterales="#CAACCB",Verrucomicrobiales="#FF0000", Enterobacterales="#882E72", Flavobacteriales="mediumpurple4",
+             Thiotrichales="lightgoldenrod1", Chitinophagales ="#BCEE68",Granulosicoccales="navy",Nitrosopumilales ="#DC050C", Phormidesmiales="#FF1493",
+             "SAR11 clade" ="#008B00",Campylobacterales="pink",  Pirellulales="#437DBF", Pseudomonadales="#521913", Bacteroidales = "#777777", Rhodobacterales="#4EB265", 
+             Synechococcales="#CAE0AB", Micrococcales = "#E7EBFA") #, Leptospirillales="#777777","goldenrod4",   Actinomarinales="#E7EBFA", "#A5170E", "#72190E""black",,"#E5702F"Cyanobacteriales ="#00CED1",)
+
+p10<-ggplot(filter(all_order_site )) +
+  geom_col(mapping = aes(
+    x = factor(Date, levels = c("August", "March")),
+    y = avg_abundance,
+    fill = Order
+  ),
+  position = "fill",
+  show.legend = TRUE,
+  width = 0.8,
+  colour = "black"
+  ) +
+  ylab("") +
+  xlab("") +
+  facet_grid(. ~ factor(Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))) +  # facet por sitio
+  my_theme+
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = colors5)
+
+p9 <- p9 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"),plot.tag.position = c(0.03, 0.98))
+p10<- p10 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98))
+orden_plot <- (p9 | p10) 
+orden_plot
+
+#AMP figure----
+library(ampvis2)
+obj<-rarefied
+otutable <- data.frame(phyloseq::otu_table(obj)@.Data,
+                       phyloseq::tax_table(obj)@.Data,
+                       check.names = FALSE)
+
+otutable$Species = otutable$Genus
+
+av2 <- amp_load(otutable, env)
+av2_est <- subset_samples(rarefied, Type == "Sporophylls" | Type == "Apical")
+obj3<-av2_est
+otutable3 <- data.frame(phyloseq::otu_table(obj3)@.Data,
+                        phyloseq::tax_table(obj3)@.Data,
+                        check.names = FALSE
+)
+
+otutable3$Species = otutable3$Genus
+
+av2_est <- amp_load(otutable3, env)
+av2_est$tax
+amp_heatmap(av2_est,tax_show = 15,
+            group_by = "Type", facet_by = c("Site", "Date"),
+            tax_aggregate = "Genus",tax_add = "Order",
+            color_vector = c("#5666B6","whitesmoke","#B2182B"))+ facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))+
+  theme(axis.text.y = element_text(size = 10),title = element_text(size = 12)) +ggtitle("")+
+  theme(axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1))+theme(strip.text.x = element_text(size = 14))
+
+env$Type <- factor(env$Type, levels = c("Apical", "Sporophylls"))
+av2_est <- amp_load(otutable3, env)
+
+p11<-amp_heatmap(av2_est,
+                 tax_show = 15,
+                 group_by = "Date",
+                 facet_by = "Type",
+                 tax_aggregate = "Genus",
+                 tax_add = "Order",
+                 color_vector = c("#5666B6", "whitesmoke", "#B2182B")) +
+  theme(
+    axis.text.y = element_text(size = 16),
+    axis.text.x = element_text(size = 18, angle = 45, vjust = 1, hjust = 1),
+    strip.text.x = element_text(size = 14),
+    title = element_text(size = 12)
+  )
+
+env$Site <- factor(env$Site, levels = c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado'))
+av2_site <- amp_load(otutable3, env)
+
+p12<-amp_heatmap(av2_site,
+                 tax_show = 15,
+                 group_by = "Date",
+                 facet_by = "Site",
+                 tax_aggregate = "Genus",
+                 tax_add = "Order",
+                 color_vector = c("#5666B6", "whitesmoke", "#B2182B")) +
+  theme(
+    axis.text.y = element_text(size = 16),
+    axis.text.x = element_text(size = 18, angle = 45, vjust = 1, hjust = 1),
+    strip.text.x = element_text(size = 14),
+    title = element_text(size = 12)
+  )
+
+library(patchwork)
+p11 <- p11 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"),plot.tag.position = c(0.03, 0.98))
+p12<- p12 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98))
+amp_plot <- (p11 | p12) 
+amp_plot
+
+#############-------------Beta diversty-----------------####################
+#ANOSIM-NMDS (bray)
+#-----Site
+library(phyloseq)
+library(vegan)
+
+# filter
+subset <- subset_samples(Bac_16S, Type != "Sea_Water")
+sample_sums(subset)
+
+# Rarefaction
+set.seed(123) 
+subset_rarefied <- rarefy_even_depth(subset, rngseed = 123, verbose = FALSE)
+sample_sums(subset_rarefied)
+
+# matrix
+otu_mat <- as(otu_table(subset_rarefied), "matrix")
+
+if (taxa_are_rows(subset_rarefied)) {
+  otu_mat <- t(otu_mat)
+}
+
+# Hellinger
+otu_hellinger <- decostand(otu_mat, method = "hellinger")
+
+# Bray-Curtis post-Hellinger
+dist_hell_bray <- vegdist(otu_hellinger, method = "bray")
+
+meta_df <- as(sample_data(subset_rarefied), "data.frame")
+
+env_august <- meta_df[meta_df$Date == "August", ]
+env_march <- meta_df[meta_df$Date == "March", ]
+env_august$ID <- rownames(env_august)
+env_march$ID <- rownames(env_march)
+
+# Subset August
+samples_august <- env_august$ID
+
+mat_dist_hell_bray <- as.matrix(dist_hell_bray)
+sub_mat_august_bray <- mat_dist_hell_bray[samples_august, samples_august]
+dist_august_bray <- as.dist(sub_mat_august_bray)
+
+# Subset March
+samples_march <- env_march$ID
+
+mat_dist_hell_bray_m <- as.matrix(dist_hell_bray)
+sub_mat_march_bray <- mat_dist_hell_bray_m[samples_march, samples_march]
+dist_march_bray <- as.dist(sub_mat_march_bray)
+
+# ANOSIM Site-Agosto 
+anosim_august_site_bray <- anosim(dist_august_bray, env_august$Site, permutations = 9999)
+
+# ANOSIM Site-Marzo 
+anosim_march_site_bray <- anosim(dist_march_bray, env_march$Site, permutations = 9999)
+
+cat("August (Site) Bray-Curtis post-Hellinger: R =", anosim_august_site_bray$statistic, "p =", anosim_august_site_bray$signif, "\n")
+cat("March (Site) Bray-Curtis post-Hellinger: R =", anosim_march_site_bray$statistic, "p =", anosim_march_site_bray$signif, "\n")
+
+# NMDS
+nmds_august_bray <- metaMDS(dist_august_bray, k = 2, trymax = 100)
+nmds_march_bray  <- metaMDS(dist_march_bray, k = 2, trymax = 100)
+
+site_colors <- c("Bahia_Buzo" = "#1b9e77", "San_Gregorio" = "#d95f02", "Buque_Quemado" = "#7570b3")
+site_shapes <- c("Bahia_Buzo" = 17, "San_Gregorio" = 19, "Buque_Quemado" = 15)
+
+r_august_site_bray <- round(anosim_august_site_bray$statistic, 3)
+p_august_site_bray <- format.pval(anosim_august_site_bray$signif, digits = 3, eps = .001)
+
+r_march_site_bray <- round(anosim_march_site_bray$statistic, 3)
+p_march_site_bray <- format.pval(anosim_march_site_bray$signif, digits = 3, eps = .001)
+
+# --- NMDS August-Site ---
+plot(nmds_august_bray$points, type = "n", main = "NMDS August (by Site, Bray-Curtis post-Hellinger)",
+     xlab = "NMDS1", ylab = "NMDS2")
+
+for (s in unique(env_august$Site)) {
+  idx <- which(env_august$Site == s)
+  points(nmds_august_bray$points[idx, ], 
+         col = site_colors[s], pch = site_shapes[s], cex = 1.2)
+}
+
+legend(x = -0.6, y = -0.25, legend = names(site_colors), 
+       col = site_colors, pch = site_shapes, bty = "n")
+
+text(x = -0.6, y = 0.25, 
+     labels = bquote(R == .(r_august_site_bray) ~ ", " ~ p == .(p_august_site_bray)),
+     cex = 1, font = 2, pos = 4)
+
+# --- NMDS March-Site ---
+plot(nmds_march_bray$points, type = "n", main = "NMDS March (by Site, Bray-Curtis post-Hellinger)",
+     xlab = "NMDS1", ylab = "NMDS2")
+
+for (s in unique(env_march$Site)) {
+  idx <- which(env_march$Site == s)
+  points(nmds_march_bray$points[idx, ], 
+         col = site_colors[s], pch = site_shapes[s], cex = 1.2)
+}
+
+legend("topright", legend = names(site_colors), 
+       col = site_colors, pch = site_shapes, bty = "n")
+
+text(x = 0.4, y = -0.3, 
+     labels = bquote(R == .(r_march_site_bray) ~ ", " ~ p == .(p_march_site_bray)),
+     cex = 1, font = 2, pos = 3)
+
+#-----Type
+dist_hell_bray <- vegdist(otu_hellinger, method = "bray")
+
+mat_dist_hell_bray <- as.matrix(dist_hell_bray)
+
+samples_august <- env_august$ID  
+sub_mat_august <- mat_dist_hell_bray[samples_august, samples_august]
+
+dist_august_bray <- as.dist(sub_mat_august)
+
+samples_march <- env_march$ID
+sub_mat_march <- mat_dist_hell_bray[samples_march, samples_march]
+dist_march_bray <- as.dist(sub_mat_march)
+
+# ANOSIM
+anosim_august_bray_type <- anosim(dist_august_bray, env_august$Type, permutations = 9999)
+anosim_march_bray_type  <- anosim(dist_march_bray,  env_march$Type,  permutations = 9999)
+
+cat("August (Type) Bray-Curtis post-Hellinger: R =", anosim_august_bray_type$statistic, "p =", anosim_august_bray_type$signif, "\n")
+cat("March (Type) Bray-Curtis post-Hellinger: R  =", anosim_march_bray_type$statistic,  "p =", anosim_march_bray_type$signif, "\n")
+
+r_august_bray_type <- round(anosim_august_bray_type$statistic, 3)
+p_august_bray_type <- format.pval(anosim_august_bray_type$signif, digits = 3, eps = .001)
+
+r_march_bray_type <- round(anosim_march_bray_type$statistic, 3)
+p_march_bray_type <- format.pval(anosim_march_bray_type$signif, digits = 3, eps = .001)
+
+# NMDS
+nmds_august_bray_type <- metaMDS(dist_august_bray, k = 2, trymax = 100)
+nmds_march_bray_type  <- metaMDS(dist_march_bray, k = 2, trymax = 100)
+
+type_colors <- c("Apical" = "#FF8C00", "Sporophylls" = "#8B4500")
+type_shapes <- c("Apical" = 19, "Sporophylls" = 15)
+
+# --- NMDS August ---
+plot(nmds_august_bray_type$points, type = "n", main = "NMDS August (by Type, Bray-Curtis post-Hellinger)",
+     xlab = "NMDS1", ylab = "NMDS2")
+
+for (t in unique(env_august$Type)) {
+  idx <- which(env_august$Type == t)
+  points(nmds_august_bray_type$points[idx, ], 
+         col = type_colors[t], pch = type_shapes[t], cex = 1.2)
+}
+
+legend("topright", legend = names(type_colors), 
+       col = type_colors, pch = type_shapes, bty = "n")
+
+text(x = -0.6, y = -0.3, 
+     labels = bquote(R == .(r_august_bray_type) ~ ", " ~ p == .(p_august_bray_type)),
+     cex = 1, font = 2, pos = 4)
+
+# --- NMDS March ---
+plot(nmds_march_bray_type$points, type = "n", main = "NMDS March (by Type, Bray-Curtis post-Hellinger)",
+     xlab = "NMDS1", ylab = "NMDS2")
+
+for (t in unique(env_march$Type)) {
+  idx <- which(env_march$Type == t)
+  points(nmds_march_bray_type$points[idx, ], 
+         col = type_colors[t], pch = type_shapes[t], cex = 1.2)
+}
+
+legend("topright", legend = names(type_colors), 
+       col = type_colors, pch = type_shapes, bty = "n")
+
+text(x = 0.35, y = -0.2, 
+     labels = bquote(R == .(r_march_bray_type) ~ ", " ~ p == .(p_march_bray_type)),
+     cex = 1, font = 2, pos = 3)
+
+# Configurar layout de 2x2
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
+# ------------------- A. NMDS August por Site (Bray) -------------------
+plot(nmds_august_bray$points, type = "n", 
+     main = "Site (August)",
+     xlab = "NMDS1", ylab = "NMDS2",
+     cex.main = 1.5, cex.lab = 1.4, cex.axis = 1.2)
+
+for (s in unique(env_august$Site)) {
+  idx <- which(env_august$Site == s)
+  points(nmds_august_bray$points[idx, ], 
+         col = site_colors[s], pch = site_shapes[s], cex = 1.2)
+}
+legend(x = -0.6, y = 0.1, legend = names(site_colors), 
+       col = site_colors, pch = site_shapes, bty = "n", cex = 1.3)
+
+text(x = 0, y = 0.4, 
+     labels = bquote(R == .(r_august_site_bray) ~ ", " ~ p == .(p_august_site_bray)),
+     cex = 1.7, font = 2, pos = 4)
+
+mtext("A", side = 3, line = 1, adj = 0, cex = 1.5, font = 2)
+
+# ------------------- B. NMDS March por Site (Bray) -------------------
+plot(nmds_march_bray$points, type = "n", 
+     main = "Site (March)",
+     xlab = "NMDS1", ylab = "NMDS2",
+     cex.main = 1.5, cex.lab = 1.4, cex.axis = 1.2)
+
+for (s in unique(env_march$Site)) {
+  idx <- which(env_march$Site == s)
+  points(nmds_march_bray$points[idx, ], 
+         col = site_colors[s], pch = site_shapes[s], cex = 1.2)
+}
+legend(x = -0.5, y = -0.9, legend = names(site_colors), 
+       col = site_colors, pch = site_shapes, bty = "n")
+
+text(x = 0.3, y = 0.22, 
+     labels = bquote(R == .(r_march_site_bray) ~ ", " ~ p == .(p_march_site_bray)),
+     cex = 1.7, font = 2, pos = 3)
+
+mtext("B", side = 3, line = 1, adj = 0, cex = 1.5, font = 2)
+# ------------------- C. NMDS August por Type (Bray) -------------------
+plot(nmds_august_bray_type$points, type = "n", 
+     main = "Type (August)",
+     xlab = "NMDS1", ylab = "NMDS2",
+     cex.main = 1.5, cex.lab = 1.4, cex.axis = 1.2)
+
+for (t in unique(env_august$Type)) {
+  idx <- which(env_august$Type == t)
+  points(nmds_august_bray_type$points[idx, ], 
+         col = type_colors[t], pch = type_shapes[t], cex = 1.2)
+}
+legend(x = -0.6, y = 0, legend = names(type_colors), 
+       col = type_colors, pch = type_shapes, bty = "n", cex = 1.3)
+
+text(x = 0.01, y = 0.4, 
+     labels = bquote(R == .(r_august_bray_type) ~ ", " ~ p == .(p_august_bray_type)),
+     cex = 1.7, font = 2, pos = 4)
+
+mtext("C", side = 3, line = 1, adj = 0, cex = 1.5, font = 2)
+# ------------------- D. NMDS March por Type (Bray) -------------------
+plot(nmds_march_bray_type$points, type = "n", 
+     main = "Type (March)",
+     xlab = "NMDS1", ylab = "NMDS2",
+     cex.main = 1.5, cex.lab = 1.4, cex.axis = 1.2)
+
+for (t in unique(env_march$Type)) {
+  idx <- which(env_march$Type == t)
+  points(nmds_march_bray_type$points[idx, ], 
+         col = type_colors[t], pch = type_shapes[t], cex = 1.2)
+}
+legend(x = -0.8, y = 0.9, legend = names(type_colors), 
+       col = type_colors, pch = type_shapes, bty = "n")
+
+text(x = 0.35, y = -0.25, 
+     labels = bquote(R == .(r_march_bray_type) ~ ", " ~ p == .(p_march_bray_type)),
+     cex = 1.7, font = 2, pos = 3)
+
+mtext("D", side = 3, line = 1, adj = 0, cex = 1.5, font = 2)
+
+#############-------------GLM-----------------####################
+#GLM Genus blades--------
+library(betareg)
+library(emmeans)
+library(statmod)
+
+av2_est <- subset_samples(rarefied, Type == "Sporophylls" | Type == "Apical")
+genusabundance <- av2_est %>%
+  tax_glom(taxrank = "Genus")%>%                     # agglomerate at genus level
+  transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
+  psmelt() %>%                                         # Melt to long format
+  arrange(Genus) 
+head(genusabundance)
+
+test <- genusabundance %>%
+  select(Genus,Site,Type,Date,Sample, Abundance) %>%
+  group_by(Genus, Site,Type, Date,Sample) %>%
+  summarize(
+    avg_abundance = mean(Abundance)) 
+#Run the models for the most abundant genera
+Psychromonas<-test[test$Genus=="Psychromonas",]
+Psychromonas$Type <- factor(Psychromonas$Type)
+Psychromonas$Site <- factor(Psychromonas$Site)
+Psychromonas$Date <- factor(Psychromonas$Date)
+Mod1 <- betareg(avg_abundance  ~Type+Site+Date, data=Psychromonas, na.action=na.omit, link = "logit")
+AIC(Mod1)
+summary(emmeans(Mod1, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod1, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod1, pairwise ~ Date, adjust="holm"))
+
+Persicirhabdus<-test[test$Genus=="Persicirhabdus",]
+Persicirhabdus$Type <- factor(Persicirhabdus$Type)
+Persicirhabdus$Site <- factor(Persicirhabdus$Site)
+Persicirhabdus$Date <- factor(Persicirhabdus$Date)
+Mod2 <- betareg(avg_abundance  ~Type+Site+Date, data=Persicirhabdus, na.action=na.omit, link = "logit")
+AIC(Mod2)
+summary(emmeans(Mod2, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod2, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod2, pairwise ~ Date, adjust="holm"))
+
+Rubritalea<-test[test$Genus=="Rubritalea",]
+Rubritalea$Type <- factor(Rubritalea$Type)
+Rubritalea$Site <- factor(Rubritalea$Site)
+Rubritalea$Date <- factor(Rubritalea$Date)
+Mod3 <- betareg(avg_abundance  ~Type+Site+Date, data=Rubritalea, na.action=na.omit, link = "logit")
+AIC(Mod3)
+summary(emmeans(Mod3, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod3, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod3, pairwise ~ Date, adjust="holm"))
+
+Blastopirellula<-test[test$Genus=="Blastopirellula",]
+Blastopirellula$Type <- factor(Blastopirellula$Type)
+Blastopirellula$Site <- factor(Blastopirellula$Site)
+Blastopirellula$Date <- factor(Blastopirellula$Date)
+Mod4 <- betareg(avg_abundance  ~Type+Site+Date, data=Blastopirellula, na.action=na.omit, link = "logit")
+AIC(Mod4)
+summary(emmeans(Mod4, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod4, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod4, pairwise ~ Date, adjust="holm"))
+
+Arenicella<-test[test$Genus=="Arenicella",]
+Arenicella$Type <- factor(Arenicella$Type)
+Arenicella$Site <- factor(Arenicella$Site)
+Arenicella$Date <- factor(Arenicella$Date)
+Mod5<-betareg(avg_abundance ~Type+Site+Date, data=Arenicella,link = "logit",na.action = "na.omit")
+AIC(Mod5)
+summary(emmeans(Mod5, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod5, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod5, pairwise ~ Date, adjust="holm"))
+
+Aliivibrio<-test[test$Genus=="Aliivibrio",]
+Aliivibrio$Type <- factor(Aliivibrio$Type)
+Aliivibrio$Site <- factor(Aliivibrio$Site)
+Aliivibrio$Date <- factor(Aliivibrio$Date)
+Mod6<-betareg(avg_abundance ~Type+Site+Date, data=Aliivibrio,link = "logit")
+AIC(Mod6)
+summary(lsmeans(Mod6, pairwise ~ Site, adjust="holm"))
+summary(lsmeans(Mod6, pairwise ~ Type, adjust="holm"))
+summary(lsmeans(Mod6, pairwise ~ Date, adjust="holm"))
+
+Cocleimonas<-test[test$Genus=="Cocleimonas",]
+Cocleimonas$Type <- factor(Cocleimonas$Type)
+Cocleimonas$Site <- factor(Cocleimonas$Site)
+Cocleimonas$Date <- factor(Cocleimonas$Date)
+Mod7 <- betareg(avg_abundance  ~Type+Site+Date, data=Cocleimonas, na.action=na.omit, link = "logit")
+AIC(Mod7)
+summary(emmeans(Mod7, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod7, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod7, pairwise ~ Date, adjust="holm"))
+
+Thalassotalea<-test[test$Genus=="Thalassotalea",]
+Thalassotalea$Type <- factor(Thalassotalea$Type)
+Thalassotalea$Site <- factor(Thalassotalea$Site)
+Thalassotalea$Date <- factor(Thalassotalea$Date)
+Mod8 <- betareg(avg_abundance  ~Type+Site+Date, data=Thalassotalea, na.action=na.omit, link = "logit")
+AIC(Mod8)
+summary(emmeans(Mod8, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod8, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod8, pairwise ~ Date, adjust="holm"))
+
+Wenyingzhuangia<-test[test$Genus=="Wenyingzhuangia",]
+Wenyingzhuangia$Type <- factor(Wenyingzhuangia$Type)
+Wenyingzhuangia$Site <- factor(Wenyingzhuangia$Site)
+Wenyingzhuangia$Date <- factor(Wenyingzhuangia$Date)
+Mod9 <- betareg(avg_abundance  ~Type+Site+Date, data=Wenyingzhuangia, na.action=na.omit, link = "logit")
+AIC(Mod9)
+summary(emmeans(Mod9, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod9, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod9, pairwise ~ Date, adjust="holm"))
+
+Granulosicoccus<-test[test$Genus=="Granulosicoccus",]
+Granulosicoccus$Type <- factor(Granulosicoccus$Type)
+Granulosicoccus$Site <- factor(Granulosicoccus$Site)
+Granulosicoccus$Date <- factor(Granulosicoccus$Date)
+Mod10 <- betareg(avg_abundance  ~Type+Site+Date, data=Granulosicoccus, na.action=na.omit, link = "logit")
+AIC(Mod10)
+summary(emmeans(Mod10, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod10, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod10, pairwise ~ Date, adjust="holm"))
+
+Psychrobium<-test[test$Genus=="Psychrobium",]
+Psychrobium$Type <- factor(Psychrobium$Type)
+Psychrobium$Site <- factor(Psychrobium$Site)
+Psychrobium$Date <- factor(Psychrobium$Date)
+Mod11 <- betareg(avg_abundance  ~Type+Site+Date, data=Psychrobium, na.action=na.omit, link = "logit")
+AIC(Mod11)
+summary(emmeans(Mod11, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod11, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod11, pairwise ~ Date, adjust="holm"))
+
+Leucothrix<-test[test$Genus=="Leucothrix",]
+Leucothrix$Type <- factor(Leucothrix$Type)
+Leucothrix$Site <- factor(Leucothrix$Site)
+Leucothrix$Date <- factor(Leucothrix$Date)
+Mod12 <- betareg(avg_abundance  ~Type+Site+Date, data=Leucothrix, na.action=na.omit, link = "logit")
+AIC(Mod12)
+summary(emmeans(Mod12, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod12, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod12, pairwise ~ Date, adjust="holm"))
+
+Algitalea<-test[test$Genus=="Algitalea",]
+Algitalea$Type <- factor(Algitalea$Type)
+Algitalea$Site <- factor(Algitalea$Site)
+Algitalea$Date <- factor(Algitalea$Date)
+Mod13 <- betareg(avg_abundance  ~Type+Site+Date, data=Algitalea, na.action=na.omit, link = "logit")
+AIC(Mod13)
+summary(emmeans(Mod13, pairwise ~ Type, adjust="holm"))
+summary(emmeans(Mod13, pairwise ~ Site, adjust="holm"))
+summary(emmeans(Mod13, pairwise ~ Date, adjust="holm"))
+
+#HeatMap GLMS-----
+library(emmeans)
+library(dplyr)
+
+result_lists <- list()
+generos <- c("Psychromonas", "Persicirhabdus", "Rubritalea","Blastopirellula","Arenicella",
+            "Aliivibrio","Cocleimonas","Thalassotalea","Wenyingzhuangia","Granulosicoccus",
+            "Psychrobium","Leucothrix","Algitalea")
+for (i in 1:13) {
+  modelo <- get(paste0("Mod", i)) 
+  genero <- generos[i]
+  
+tukey_site <- summary(emmeans(modelo, pairwise ~ Site, adjust = "holm")$contrasts)
+tukey_site <- tukey_site %>%
+    mutate(Genero = genero,
+           Variable = "Site")
+
+tukey_date <- summary(emmeans(modelo, pairwise ~ Date, adjust = "holm")$contrasts)
+tukey_date <- tukey_date %>%
+    mutate(Genero = genero,
+           Variable = "Date")
+  
+tukey_type <- summary(emmeans(modelo, pairwise ~ Type, adjust = "holm")$contrasts)
+tukey_type <- tukey_type %>%
+    mutate(Genero = genero,
+           Variable = "Type")
+
+result_lists [[i]] <- bind_rows(tukey_site, tukey_date, tukey_type)
+}
+
+glm_results <- bind_rows(result_lists)
+
+glm_results <- glm_results %>%
+  select(Genero, Variable, contrast, estimate, SE, p.value)
+
+glm_results <- glm_results %>%
+  mutate(Significativo = ifelse(p.value < 0.05, "Yes", "No"))
+
+ggplot(glm_results, aes(x = contrast, y = Genero, fill = Significativo)) +
+  geom_tile(color = "white") +
+  geom_text(aes(
+    label = ifelse(p.value < 0, "0", round(p.value, 3))
+  ), size = 4) +  
+  facet_wrap(~ Variable, scales = "free_x") +
+  scale_fill_manual(values = c("Yes" = "#d73027", "No" = "#f0f0f0")) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 14),  
+    axis.text.y = element_text(size = 14),                         
+    strip.text = element_text(size = 16)           
+  ) +
+  labs(
+    title = "",
+    x = "",
+    y = "",
+    fill = "Significance"
+  )
+
+orden_tax <- data.frame(
+  Genero = c("Psychromonas", "Persicirhabdus", "Rubritalea","Blastopirellula","Arenicella","Aliivibrio","Cocleimonas",
+             "Thalassotalea","Wenyingzhuangia","Granulosicoccus","Psychrobium","Leucothrix","Algitalea" ),
+  
+  Orden = c("Enterobacterales", "Verrucomicrobiales", "Verrucomicrobiales","Pirellulales","Arenicellales","Enterobacterales","Thiotrichales",
+            "Enterobacterales","Flavobacteriales","Granulosicoccales","Enterobacterales","Thiotrichales","Flavobacteriales"))
+             
+
+
+glm_results <- left_join(glm_results, orden_tax, by = "Genero")
+
+glm_results <- glm_results %>%
+  mutate(Genero_Orden = paste(Orden, Genero, sep = " | "))
+
+
+glm_results <- glm_results %>%
+  arrange(Orden, Genero) %>%
+  mutate(
+    Genero_Orden = paste(Orden, Genero, sep = " | "),
+    Genero_Orden_label = paste0(Orden, " ~ '|' ~ italic('", Genero, "')"),
+    Genero_Orden_label = factor(Genero_Orden_label, levels = unique(Genero_Orden_label))
+  )
+ggplot(glm_results, aes(x = contrast, y = Genero_Orden_label, fill = Significativo)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = ifelse(p.value < 0, "0", round(p.value, 3))), size = 4) +
+  facet_wrap(~ Variable, scales = "free_x") +
+  scale_fill_manual(values = c("Yes" = "#d73027", "No" = "#f0f0f0")) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 15),
+    axis.text.y = element_text(size = 15),
+    strip.text = element_text(size = 16)
+  ) +
+  labs(
+    title = "",
+    x = "",
+    y = "Order | Genus",
+    fill = "Significance"
+  ) +
+  scale_y_discrete(labels = function(x) parse(text = x))
+
+#############-------------CORE-----------------####################
+
+library(dplyr)
+library(vegan)
+library(phyloseq)
+library(microbiome)
+library(ggVennDiagram)
+library(ggplot2)
+#Subset data
+Bac_16S_filt <- subset_samples(Bac_16S, Type != "Sea_Water")
+
+#CORE Type----
+#Subset data
+apicales <- subset_samples(Bac_16S_filt, Type == "Apical")
+sporophylls <- subset_samples(Bac_16S_filt, Type == "Sporophylls")
+#Make it relative
+apicales_rel <- transform_sample_counts(apicales, function(x) x / sum(x))
+sporophylls_rel <- transform_sample_counts(sporophylls, function(x) x / sum(x))
+
+otu_table(apicales_rel) <- otu_table(apicales_rel, taxa_are_rows = TRUE)
+otu_table(sporophylls_rel) <- otu_table(sporophylls_rel, taxa_are_rows = TRUE)
+#Pick the core 
+core_apicales <- core(apicales_rel, detection = 0.001, prevalence = 0.90)
+core_sporophylls <- core(sporophylls_rel, detection = 0.001, prevalence = 0.90)
+
+asv_apicales <- taxa_names(core_apicales)
+asv_sporophylls <- taxa_names(core_sporophylls)
+#Assign to list to manipulate data
+asv_apicales_list <- c("ASV_18","ASV_2","ASV_3","ASV_4","ASV_5","ASV_9" )
+#Save list in .csv
+write.csv(asv_apicales_lista , "core_apical.csv", row.names = TRUE)
+#Assign to list to manipulate data
+asv_sporophylls_list <- c("ASV_10","ASV_17","ASV_2","ASV_3","ASV_4","ASV_5","ASV_6","ASV_9","ASV_33")
+#Save list in .csv
+write.csv(asv_sporophylls_list, "core_sporophylls.csv", row.names = TRUE)
+#Read the .csv modified with the names of bacterial genera
+core_apical <- read.csv("core_apical.csv")
+core_sporophylls <- read.csv("core_sporophylls.csv")
+#Subset data
+asv_apical <- unique(core_apical$ASV)
+asv_sporophylls <- unique(core_sporophylls$ASV)
+
+asv_list <- list(
+  Sporophylls = asv_sporophylls,
+  Apical = asv_apical)
+#Subset data
+core_apical$Origen <- "Apical"
+core_sporophylls$Origen <- "Sporophylls"
+core_total <- bind_rows(core_apical, core_sporophylls)
+
+asv_comunes <- intersect(asv_apical, asv_sporophylls)
+asv_solo_apical <- setdiff(asv_apical, asv_sporophylls)
+asv_solo_sporophylls <- setdiff(asv_sporophylls, asv_apical)
+
+# Comun ASVs
+gen_inter <- core_total %>%
+  filter(ASV %in% asv_comunes) %>%
+  distinct(ASV, .keep_all = TRUE) %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(texto = paste0(Genus, " (", n,")"))
+
+# only ASVs apical
+gen_apical <- core_apical %>%
+  filter(ASV %in% asv_solo_apical) %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(texto = paste0(Genus, " (", n,")"))
+
+# only ASVs sporophylls
+gen_sporophylls<- core_sporophylls %>%
+  filter(ASV %in% asv_solo_sporophylls) %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(texto = paste0(Genus, " (", n,")"))
+
+
+texto_apical <- paste(gen_apical$texto, collapse = "\n")
+texto_esporofila <- paste(gen_sporophylls$texto, collapse = "\n")
+texto_inter <- paste(gen_inter$texto, collapse = "\n")
+
+#Plote the Venn diagram
+venn <- ggVennDiagram(asv_lista,label = "none", label_alpha = 0, show_label = FALSE) +
+  scale_fill_gradient(low = "#FFFF00", high = "#C1FFC1") +
+  theme_void() +
+  theme(legend.position = "none") +
+  ggtitle("")
+
+venn_type_plot <-venn +
+  annotate("text", x = -0.2, y = 8.5, label = "Apical", size = 8, fontface = "plain") +
+  annotate("text", x = 0.15, y = -4.5, label = "Sporophylls", size = 8, fontface = "plain") +
+  annotate("text", x = -1.4, y = 6.1, label = texto_apical, size = 8, hjust = 0, fontface = "italic") +
+  annotate("text", x = -1.2, y = -1.7, label = texto_sporophylls, size = 8, hjust = 0, fontface = "italic") +
+  annotate("text", x = -1.8, y = 2, label = texto_inter, size = 7, hjust = 0, fontface = "italic")
+
+
+# CORE Date ----
+#Subset data
+August<- subset_samples(Bac_16S_filt, Date == "August")
+March <- subset_samples(Bac_16S_filt, Date == "March")
+#Make it relative
+August_rel <- transform_sample_counts(August, function(x) x / sum(x))
+March_rel <- transform_sample_counts(March, function(x) x / sum(x))
+
+otu_table(August_rel) <- otu_table(August_rel, taxa_are_rows = TRUE)
+otu_table(March_rel) <- otu_table(March_rel, taxa_are_rows = TRUE)
+#Pick the core 
+core_August <- core(August_rel, detection = 0.001, prevalence = 0.90)
+core_March <- core(March_rel, detection = 0.001, prevalence = 0.90)
+
+asv_August <- taxa_names(core_August)
+asv_March <- taxa_names(core_March)
+
+#Assign to list to manipulate data
+asv_August <- c("ASV_13","ASV_2","ASV_30","ASV_36","ASV_4","ASV_5","ASV_6","ASV_9" )
+#Save list in .csv
+write.csv(asv_August, "core_August.csv", row.names = TRUE)
+asv_March <- c("ASV_10","ASV_11","ASV_17","ASV_19","ASV_2","ASV_22","ASV_3","ASV_4","ASV_7","ASV_9","ASV_33")
+write.csv(asv_March, "core_March.csv", row.names = TRUE)
+
+#Read the .csv modified with the names of bacterial genera
+core_August <- read.csv("core_August.csv")
+core_March <- read.csv("core_March.csv")
+
+asv_August <- unique(core_Augustt$ASV)
+asv_March <- unique(core_March$ASV)
+
+asv_list <- list(
+  August = asv_August,
+  March = asv_march)
+
+core_August$Origen <- "August"
+core_March$Origen <- "March"
+core_total <- bind_rows(core_August, core_March)
+
+# Inter
+asv_comun_date <- intersect(asv_August, asv_March)
+asv_solo_August <- setdiff(asv_August, asv_March)
+asv_solo_March <- setdiff(asv_March, asv_August)
+
+# Comun ASVs
+gen_inter_date <- core_total %>%
+  filter(ASV %in% asv_comunes_date) %>%
+  distinct(ASV, .keep_all = TRUE) %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(texto = paste0(Genus, " (", n, ")"))
+
+# only ASVs August
+gen_August <- core_August %>%
+  filter(ASV %in% asv_solo_August) %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(texto = paste0(Genus, " (", n, ")"))
+
+# only ASVs March
+gen_March <- core_March%>%
+  filter(ASV %in% asv_solo_March) %>%
+  group_by(Genus) %>%
+  summarise(n = n()) %>%
+  mutate(texto = paste0(Genus, " (", n, ")"))
+
+
+texto_August <- paste(gen_August$texto, collapse = "\n")
+texto_March <- paste(gen_March$texto, collapse = "\n")
+texto_inter_date <- paste(gen_inter_date$texto, collapse = "\n")
+
+names(asv_lista) <- c("", "") 
+names(asv_lista) <- c("", "") 
+
+#PLot Venn diagram
+venn <- ggVennDiagram(asv_lista, label = "none", label_alpha = 0, show_label = FALSE) +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  theme_void() +
+  theme(legend.position = "none") +
+  ggtitle("")
+
+venn_date_plot <-venn +
+  annotate("text", x = -0.2, y = 8.5, label = "August", size = 8, fontface = "plain") +
+  annotate("text", x = 0.15, y = -4.5, label = "March", size = 8, fontface = "plain") +
+  annotate("text", x = -1.2, y = 6, label = texto_august, size = 6, hjust = 0, fontface = "italic") +
+  annotate("text", x = -1.5, y = 2.2, label = texto_inter_date, size = 6, hjust = 0, fontface = "italic") +
+  annotate("text", x = -1.1, y = -1.7, label = texto_march, size = 6, hjust = 0, fontface = "italic")
+
+
+#Combined plot (Type + Date)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+
+venn_type_plot <- venn_type_plot +
+  annotate("text", x = -4, y = 7, label = "A", size = 10, fontface = "bold")
+
+venn_date_plot <- venn_date_plot +
+  annotate("text", x = -4, y = 7, label = "B", size = 10, fontface = "bold")
+
+combined_plot <- venn_type_plot + venn_date_plot +
+  plot_layout(ncol = 2)
+
+combined_plot 
+
+#CORE + Phylogeny 
+ #presence
+core_all <- bind_rows(core_August, core_March, core_apical, core_sporophylls)
+
+core_all <- core_all %>%
+  mutate(Genus_ASV = paste0(Genus, " (", ASV, ")"))
+
+asv_tax <- core_all %>%
+  select(ASV, Genus_ASV) %>%
+  distinct()
+
+All_asvs <- unique(core_all$ASV)
+
+pa_matrix <- data.frame(
+  ASV = All_asvs,
+  Apical = as.integer(All_asvs %in% core_apical$ASV),
+  Sporophylls = as.integer(All_asvs %in% core_sporophylls$ASV),
+  August = as.integer(All_asvs %in% core_August$ASV),
+  March = as.integer(All_asvs %in% core_March$ASV)
+)
+
+pa_matrix <- left_join(pa_matrix, asv_tax, by = "ASV")
+
+pa_long <- pa_matrix %>%
+  pivot_longer(cols = c("Apical", "Sporophylls", "August", "March"),
+               names_to = "Grupo", values_to = "Presencia")
+
+genus_order <- pa_long %>%
+  group_by(Genus_ASV) %>%
+  summarize(Total = sum(Presencia)) %>%
+  arrange(desc(Total)) %>%
+  pull(Genus_ASV)
+pa_long$Grupo <- factor(pa_long$Grupo, levels = c("Apical", "Sporophylls", "August", "March"))
+
+om <- c("Psychromonas (ASV_11)","Psychromonas (ASV_19)","Psychromonas (ASV_3)","Aliivibrio (ASV_7)",
+       "Cocleimonas (ASV_33)","Leucothrix (ASV_10)","Arenicella (ASV_36)","Arenicella (ASV_6)",
+       "Psychrobium (ASV_17)","Pseudoalteromonas (ASV_22)","Thalassotalea (ASV_4)","f_Flavobacteriaceae (ASV_9)",
+       "Litorimonas (ASV_30)","Hellea (ASV_13)","Persicirhabdus (ASV_2)","Rubritalea (ASV_5)",
+        "Rubritalea (ASV_18)")
+
+pa_long$Genus_ASV <- factor(pa_long$Genus_ASV, levels = om)
+
+p_heatmap <-ggplot(pa_long, aes(x = Grupo, y = Genus_ASV, fill = factor(Presencia))) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = c("0" = "white", "1" = "#d73027"), name = "Presence") +
+  labs(x = "", y = "", title = "") +
+  theme_minimal() +
+  theme(axis.text.y = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 18))
+
+
+library(ape)
+library(phangorn)
+library(Biostrings)
+library(DECIPHER)
+library(ggtree)
+library(ggnewscale)
+library(patchwork)
+#read fasta file
+fasta <- readDNAStringSet("")
+fasta
+
+asvs_core <- unique(core_all$ASV)
+fasta_core <- fasta[names(fasta) %in% asvs_core]
+aligned <- AlignSeqs(fasta_core)
+
+#Jukes-Cantor
+dna_dist <- DistanceMatrix(aligned, correction = "JC69")
+#Neighbor Joining (NJ) method
+tree <- NJ(dna_dist)
+
+p_tree <- ggtree(tree) + 
+  geom_tiplab(size = 3) + 
+  theme_tree2()
+p_tree
+
+tax_table <- asv_tax
+
+tax_table$Taxon <- gsub(" \\(ASV_\\d+\\)$", "", tax_table$Genus_ASV)         
+tax_table$ASV_ID <- gsub("^.*\\(ASV_(\\d+)\\)$", "ASV_\\1", tax_table$Genus_ASV) 
+tax_table$Genus_ASV_italic <- ifelse(
+  grepl("^f_", tax_table$Taxon), 
+  paste0("'", tax_table$Taxon, " (", tax_table$ASV_ID, ")'"),
+  paste0("italic('", tax_table$Taxon, "')~'(ASV_", sub("ASV_", "", tax_table$ASV_ID), ")'")
+)
+
+p_tree <- ggtree(tree) %<+% tax_table +
+  geom_tiplab(aes(label = Genus_ASV_italic), 
+              size = 6, align = TRUE, linetype = "dotted", offset = 0.02,
+              parse = TRUE) +
+  theme_tree2() +
+  xlim(0, max(p_tree$data$x) * 1.3)
+p_tree
+
+p_heatmap <- ggplot(pa_long, aes(x = Grupo, y = Genus_ASV, fill = factor(Presencia))) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = c("0" = "white", "1" = "#d73027"), name = "Presence") +
+  labs(x = "", y = "Genus (ASV)", title = "") +
+  theme_minimal(base_size = 18) +
+  theme(  axis.text.y = element_blank(),   
+          axis.ticks.y = element_blank(), 
+          axis.title.y = element_blank(),
+          axis.text.x = element_text(             
+            size = 18,                            
+            color = "black",                      
+            angle = 45,                           
+            hjust = 1                            
+          )
+  )
+
+p_final <- p_tree + p_heatmap + plot_layout(ncol = 2, widths = c(9, 0.8))  
+p_final
+
