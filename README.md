@@ -1,2 +1,2 @@
 # Spatio-temporal variability of the bacterial communities associated with the giant kelp (Macrocystis pyrifera) along the Strait of Magellan.
-R scripts for the analysis of the bacterial communities associated with the giant alga Macrocystis pyrifera in the Magellan Strait, Chile.
+R scripts for the analysis of the bacterial communities associated with the giant alga Macrocystis pyrifera in the Magellan Strait, Chile. In addition to the environmental table containing each sample’s identifier, sampling site, sample type, and collection date (Env(0)), all other metadata was generated using the DADA2 workflow and R code (M. pyrifera microbiota).
