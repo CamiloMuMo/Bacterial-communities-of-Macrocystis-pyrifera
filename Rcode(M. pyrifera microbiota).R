@@ -57,11 +57,6 @@ silva.2<-as.SeqFastadna(silva)
 is.SeqFastadna(silva.2)
 summary(silva.2[[2]])
 
-#Filters out sequences with length greater than 350.
-f1 <- silva.2[which(lapply(silva.2, function(x) summary(x)$length) > 350)]
-#Filters out sequences with length less than 270.
-f2 <- silva.2[which(lapply(silva.2, function(x) summary(x)$length) < 270)]
-
 #Make relative
 library(funrar)
 ##Convert df to relative values
