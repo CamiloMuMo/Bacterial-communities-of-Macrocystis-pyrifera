@@ -97,7 +97,7 @@ write.table(merged, "track_reads/merged_filter1.txt")
 
 message("STEP4: MERGE RUNS, REMOVE CHIMERAS, ASSIGN TAXONOMY ###")
 # Merge runs
- st1 <- readRDS("/media/laboratorio/Raid/Estacionalidad/Env.Micro/Data/out_filter1/seqtab_filter1.rds")
+ st1 <- readRDS(" container folder") <- insert your container folder
 
 message("Remove chimeras")
 seqtab <- removeBimeraDenovo(st1, method="consensus", multithread=TRUE)
@@ -106,8 +106,8 @@ nochim <- rowSums(seqtab)
 write.table(nochim, "nochim_filter.txt")
 
 message("Assign taxonomy with Silva")
-taxa.silva <- assignTaxonomy(seqtab, file.path("Taxonomy/silva_nr99_v138.1_train_set.fa.gz"), minBoot = 80, multithread=TRUE, verbose=TRUE)
-species.silva <- addSpecies(taxa.silva, file.path("Taxonomy/silva_species_assignment_v138.1.fa.gz"), verbose=TRUE) # Assign species
+taxa.silva <- assignTaxonomy(seqtab, file.path("your datasets"), minBoot = 80, multithread=TRUE, verbose=TRUE)
+species.silva <- addSpecies(taxa.silva, file.path("your datasets"), verbose=TRUE) # Assign species
 saveRDS(taxa.silva, file.path("taxa.silva.rds"))
 saveRDS(species.silva, file.path("species.silva.rds"))
 
