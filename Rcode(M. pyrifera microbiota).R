@@ -9,7 +9,7 @@ library(phyloseq)
 ###Read file to work
 taxa.silva <- read_excel("taxa.silva.xlsx")
 ###Clean data
-clean.16S <- decon(data = as.data.frame(taxa.silva),numb.blanks=12,numb.ind=66,taxa=F)
+clean.16S <- decon(data = as.data.frame(taxa.silva),numb.blanks=,numb.ind=66,taxa=F) #<- Adjust according to your data
 clean.16S<-clean.16S$decon.table
 clean.16S<-clean.16S[,-2]
 dim(clean.16S)
@@ -73,16 +73,16 @@ table<-read.table("taxa.silva.txt", header = T, sep="\t")
 Reads <- read_xlsx("table16S.xlsx")
 colnames(Reads)
 Reads<-Reads[,-1]
-tax<-table[,c(2, 84:89)]
+tax<-table[,c(xx, xx:xx)]
 
 d <- read_xlsx("table16S.xlsx")
 dim(d)
 #Dataframe containing the environmental variables
 env<-read.csv("Env.csv")
 #Select the specific columns from the dataframe d to store in tax
-tax<-d[,c(1,68:73)]
+tax<-d[,c(xx,xx:xx)]
 ##Select the columns from dataframe d with abundance readings for each ASV
-reads<-d[,c(1:67)]
+reads<-d[,c(xx:xx)]
 colnames(reads)
 
 #Assign the reads object (ASV abundance table) to the asv_mat variable
@@ -139,18 +139,18 @@ p<-plot_richness(rarefied, x="Type", measures=c("Chao1"))+
         axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1),
         axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))
 
-newSTorder = c("Apical","Sporophylls")
+newSTorder = c("xx","xx") #<- Sample type name
 p$data$Type <- as.character(p$data$Type)
 p$data$Type <- factor(p$data$Type, levels=newSTorder)
 print(p)
 
 #Sort by Type
-p$data$Type <- factor(p$data$Type, levels = c("Apical", "Sporophylls"))
+p$data$Type <- factor(p$data$Type, levels = c("xx", "xx"))#<- Sample type name
 
 p1<-plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
   geom_boxplot(aes(fill = Type), alpha = 0.7, outlier.shape = NA) +
   facet_wrap(~Type, nrow = 1) +
-  scale_fill_manual(values = c("Apical" = "#C0FF3E", "Sporophylls" = "#698B22")) +
+  scale_fill_manual(values = c("xx" = "#C0FF3E", "xx" = "#698B22")) +
   theme_minimal(base_size = 14) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1),
@@ -162,7 +162,7 @@ p1<-plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
   ylab("Alpha diversity measure")
 
 #Sort by Site
-sample_data(rarefied)$Site <- factor(sample_data(rarefied)$Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))
+sample_data(rarefied)$Site <- factor(sample_data(rarefied)$Site, levels = c("xx", "xx", "xx")) #<- Sample site name
 p2<- plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
   geom_boxplot(aes(fill = Site), alpha = 0.7, outlier.shape = NA) +
   facet_wrap(~Site, nrow = 1) +
@@ -199,18 +199,18 @@ p<-plot_richness(subset, x="Type", measures=c("Shannon"))+
         axis.text.y.left = element_text(size = 15),
         axis.title.x = element_text(size = 15),
         axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1),
-        axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))
-newSTorder = c("Apical","Sporophylls")
+        axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('xx', 'xx', 'xx')))#<- Sample site name
+newSTorder = c("xx","xx") #<- Sample type name
 p$data$Type <- as.character(p$data$Type)
 p$data$Type <- factor(p$data$Type, levels=newSTorder)
 print(p)
 
 #Sort by Type
-p$data$Type <- factor(p$data$Type, levels = c("Apical", "Sporophylls"))
+p$data$Type <- factor(p$data$Type, levels = c("xx", "xx"))#<- Sample type name
 p3<- plot_richness(subset, x = "Date", measures = c("Shannon")) +
   geom_boxplot(aes(fill = Type), alpha = 0.7, outlier.shape = NA) +
   facet_wrap(~Type, nrow = 1) +
-  scale_fill_manual(values = c("Apical" = "#C0FF3E", "Sporophylls" = "#698B22")) +
+  scale_fill_manual(values = c("xx" = "#C0FF3E", "xx" = "#698B22")) +
   theme_minimal(base_size = 14) +
   theme(
     axis.text.x = element_text(size = 20, angle = 45, hjust = 1),  
@@ -223,7 +223,7 @@ p3<- plot_richness(subset, x = "Date", measures = c("Shannon")) +
   ylab("Alpha diversity measure")
 
 #Sort by Site
-sample_data(subset)$Site <- factor(sample_data(subset)$Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))
+sample_data(subset)$Site <- factor(sample_data(subset)$Site, levels = c("xx", "xx", "xx"))#<- Sample site name
 p4 <-plot_richness(subset, x = "Date", measures = c("Shannon")) +
   geom_boxplot(aes(fill = Site), alpha = 0.7, outlier.shape = NA) +
   facet_wrap(~Site, nrow = 1) +
@@ -315,7 +315,7 @@ p5<-ggplot(all) +
   ) +
   ylab("Relative abundance (%)") +
   xlab("") +
-  facet_grid(. ~ factor(Type, levels = c("Apical", "Sporophylls"))) +
+  facet_grid(. ~ factor(Type, levels = c("xx", "xx"))) +#<- Sample type name
   theme(
     axis.text.y.left = element_text(size = 12),
     axis.title.y = element_text(size = 12),
@@ -341,7 +341,7 @@ p5<-ggplot(all) +
   ) +
   ylab("Relative abundance (%)") +
   xlab("") +
-  facet_grid(. ~ factor(Type, levels = c("Apical", "Sporophylls"))) +
+  facet_grid(. ~ factor(Type, levels = c("xx", "xx"))) +#<- Sample type name
   theme(
     axis.text.y.left = element_text(size = 12),
     axis.title.y = element_text(size = 12),
@@ -373,7 +373,7 @@ p6<-ggplot(filter(all_sitio)) +
   ) +
   ylab("") +
   xlab("") +
-  facet_grid(. ~ factor(Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))) + 
+  facet_grid(. ~ factor(Site, levels = c("xx", "xx", "xx"))) + #<- Sample site name
   theme(
     axis.text.y.left = element_text(size = 12),
     axis.title.y = element_text(size = 12),
@@ -415,7 +415,7 @@ colors=c(Actinobacteriota="#E7EBFA", Bacteroidota="#8470FF",Crenarchaeota="pink"
 # Gráfico final
 w5<-ggplot(all_water) +
   geom_col(aes(
-    x = factor(Date, levels = c("August", "March")),
+    x = factor(Date, levels = c("xx", "xx")),#<- Sample date name
     y = avg_abundance,
     fill = Phylum
   ),
@@ -447,7 +447,7 @@ all_sitio_w <- phylumabundance %>%
   filter(avg_abundance >= 0.05)
 w6<-ggplot(filter(all_sitio_w)) +
   geom_col(mapping = aes(
-    x = factor(Date, levels = c("August", "March")),
+    x = factor(Date, levels = c("xx", "xx")),
     y = avg_abundance,
     fill = Phylum
   ),
@@ -458,7 +458,7 @@ w6<-ggplot(filter(all_sitio_w)) +
   ) +
   ylab("") +
   xlab("") +
-  facet_grid(. ~ factor(Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))) +  # facet por sitio
+  facet_grid(. ~ factor(Site, levels = c("xx", "xx", "xx"))) +  # facet por sitio
   theme(
     axis.text.y.left = element_text(size = 12),
     axis.title.y = element_text(size = 12),
@@ -485,7 +485,7 @@ abundance_class <- rarefied %>%
   psmelt() %>%                                         # Melt to long format
   arrange(Class) 
 head(abundance_class)
-write.csv(abundance_class, file="Classabundance.csv")
+
 
 all_class <- abundance_class %>%
   filter(Type != "Sea_Water") %>%
@@ -505,7 +505,7 @@ colors4 <- c(Cyanobacteriia="#00CED1" ,Bacteroidia="navy", Verrucomicrobiae="#FF
 
 p7<-ggplot(all_class) +
   geom_col(aes(
-    x = factor(Date, levels = c("August", "March")),
+    x = factor(Date, levels = c("xx", "xx")),#<-  date name
     y = avg_abundance,
     fill = Class
   ),
@@ -516,7 +516,7 @@ p7<-ggplot(all_class) +
   ) +
   ylab("Relative abundance (%)") +
   xlab("") +
-  facet_grid(. ~ factor(Type, levels = c("Apical", "Sporophylls"))) +
+  facet_grid(. ~ factor(Type, levels = c("xx", "xx"))) +#<- Sample type name
   my_theme+
   scale_y_continuous(labels = scales::percent) +
   scale_fill_manual(values = colors4, drop = FALSE) 
@@ -544,7 +544,7 @@ p8<-ggplot(filter(all_class_sitio )) +
   ) +
   ylab("") +
   xlab("") +
-  facet_grid(. ~ factor(Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))) + 
+  facet_grid(. ~ factor(Site, levels = c("xx", "xx", "xx"))) + #<- Sample site name
   my_theme +
   scale_y_continuous(labels = scales::percent) +
   scale_fill_manual(values = colors4)
@@ -561,7 +561,6 @@ orderabundance <- rarefied %>%
   psmelt() %>%                                         # Melt to long format
   arrange(Order) 
 head(orderabundance)
-write.csv(orderabundance, file="orderabundance.csv")
 
 all_order <- orderabundance %>%
   filter(Type != "Sea_Water") %>%
@@ -578,11 +577,9 @@ unique(all_order$Order)
 colors5 <- c(Arenicellales="plum4",Caulobacterales="#CAACCB",Verrucomicrobiales="#FF0000", Enterobacterales="#882E72", Flavobacteriales="mediumpurple4",
              Thiotrichales="lightgoldenrod1", Chitinophagales ="#BCEE68",Granulosicoccales="navy",Nitrosopumilales ="#DC050C", Phormidesmiales="#FF1493",
              "SAR11 clade" ="#008B00",Campylobacterales="pink",  Pirellulales="#437DBF", Pseudomonadales="#521913", Bacteroidales = "#777777", Rhodobacterales="#4EB265", 
-             Synechococcales="#CAE0AB", Micrococcales = "#E7EBFA") #, Leptospirillales="#777777","goldenrod4",   Actinomarinales="#E7EBFA", "#A5170E", "#72190E""black",,"#E5702F"Cyanobacteriales ="#00CED1",)
-
-p9<-ggplot(all_order) +
+             Synechococcales="#CAE0AB", Micrococcales = "#E7EBFA") 
   geom_col(aes(
-    x = factor(Date, levels = c("August", "March")),
+    x = factor(Date, levels = c("xx", "xx")),#<- Sample date name
     y = avg_abundance,
     fill = Order
   ),
@@ -593,7 +590,7 @@ p9<-ggplot(all_order) +
   ) +
   ylab("Relative abundance (%)") +
   xlab("") +
-  facet_grid(. ~ factor(Type, levels = c("Apical", "Sporophylls"))) +
+  facet_grid(. ~ factor(Type, levels = c("xx", "xx"))) +#<- Sample type name
   my_theme+
   scale_y_continuous(labels = scales::percent) +
   scale_fill_manual(values = colors5, drop = FALSE) 
@@ -610,11 +607,10 @@ head(all_order)
 colors5 <- c(Arenicellales="plum4",Caulobacterales="#CAACCB",Verrucomicrobiales="#FF0000", Enterobacterales="#882E72", Flavobacteriales="mediumpurple4",
              Thiotrichales="lightgoldenrod1", Chitinophagales ="#BCEE68",Granulosicoccales="navy",Nitrosopumilales ="#DC050C", Phormidesmiales="#FF1493",
              "SAR11 clade" ="#008B00",Campylobacterales="pink",  Pirellulales="#437DBF", Pseudomonadales="#521913", Bacteroidales = "#777777", Rhodobacterales="#4EB265", 
-             Synechococcales="#CAE0AB", Micrococcales = "#E7EBFA") #, Leptospirillales="#777777","goldenrod4",   Actinomarinales="#E7EBFA", "#A5170E", "#72190E""black",,"#E5702F"Cyanobacteriales ="#00CED1",)
-
+             Synechococcales="#CAE0AB", Micrococcales = "#E7EBFA") 
 p10<-ggplot(filter(all_order_site )) +
   geom_col(mapping = aes(
-    x = factor(Date, levels = c("August", "March")),
+    x = factor(Date, levels = c("xx", "xx")),#<- Sample date name
     y = avg_abundance,
     fill = Order
   ),
@@ -625,7 +621,7 @@ p10<-ggplot(filter(all_order_site )) +
   ) +
   ylab("") +
   xlab("") +
-  facet_grid(. ~ factor(Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))) +  # facet por sitio
+  facet_grid(. ~ factor(Site, levels = c("xx", "xx", "xx"))) +  # facet por sitio
   my_theme+
   scale_y_continuous(labels = scales::percent) +
   scale_fill_manual(values = colors5)
@@ -645,7 +641,7 @@ otutable <- data.frame(phyloseq::otu_table(obj)@.Data,
 otutable$Species = otutable$Genus
 
 av2 <- amp_load(otutable, env)
-av2_est <- subset_samples(rarefied, Type == "Sporophylls" | Type == "Apical")
+av2_est <- subset_samples(rarefied, Type == "xx" | Type == "xx")#<- Sample type name
 obj3<-av2_est
 otutable3 <- data.frame(phyloseq::otu_table(obj3)@.Data,
                         phyloseq::tax_table(obj3)@.Data,
@@ -659,11 +655,11 @@ av2_est$tax
 amp_heatmap(av2_est,tax_show = 15,
             group_by = "Type", facet_by = c("Site", "Date"),
             tax_aggregate = "Genus",tax_add = "Order",
-            color_vector = c("#5666B6","whitesmoke","#B2182B"))+ facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))+
+            color_vector = c("#5666B6","whitesmoke","#B2182B"))+ facet_grid(Date~factor(Site, levels=c('xx', 'xx', 'xx')))+#<- Sample site name
   theme(axis.text.y = element_text(size = 10),title = element_text(size = 12)) +ggtitle("")+
   theme(axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1))+theme(strip.text.x = element_text(size = 14))
 
-env$Type <- factor(env$Type, levels = c("Apical", "Sporophylls"))
+env$Type <- factor(env$Type, levels = c("xx", "xx"))#<- Sample type name
 av2_est <- amp_load(otutable3, env)
 
 p11<-amp_heatmap(av2_est,
@@ -680,7 +676,7 @@ p11<-amp_heatmap(av2_est,
     title = element_text(size = 12)
   )
 
-env$Site <- factor(env$Site, levels = c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado'))
+env$Site <- factor(env$Site, levels = c('xx', 'xx', 'xx'))#<- Sample site name
 av2_site <- amp_load(otutable3, env)
 
 p12<-amp_heatmap(av2_site,
@@ -758,15 +754,12 @@ anosim_august_site_bray <- anosim(dist_august_bray, env_august$Site, permutation
 # ANOSIM Site-Marzo 
 anosim_march_site_bray <- anosim(dist_march_bray, env_march$Site, permutations = 9999)
 
-cat("August (Site) Bray-Curtis post-Hellinger: R =", anosim_august_site_bray$statistic, "p =", anosim_august_site_bray$signif, "\n")
-cat("March (Site) Bray-Curtis post-Hellinger: R =", anosim_march_site_bray$statistic, "p =", anosim_march_site_bray$signif, "\n")
-
 # NMDS
 nmds_august_bray <- metaMDS(dist_august_bray, k = 2, trymax = 100)
 nmds_march_bray  <- metaMDS(dist_march_bray, k = 2, trymax = 100)
 
-site_colors <- c("Bahia_Buzo" = "#1b9e77", "San_Gregorio" = "#d95f02", "Buque_Quemado" = "#7570b3")
-site_shapes <- c("Bahia_Buzo" = 17, "San_Gregorio" = 19, "Buque_Quemado" = 15)
+site_colors <- c("xx" = "#1b9e77", "xx" = "#d95f02", "xx" = "#7570b3")
+site_shapes <- c("xx" = 17, "xx" = 19, "xx" = 15)
 
 r_august_site_bray <- round(anosim_august_site_bray$statistic, 3)
 p_august_site_bray <- format.pval(anosim_august_site_bray$signif, digits = 3, eps = .001)
@@ -775,7 +768,7 @@ r_march_site_bray <- round(anosim_march_site_bray$statistic, 3)
 p_march_site_bray <- format.pval(anosim_march_site_bray$signif, digits = 3, eps = .001)
 
 # --- NMDS August-Site ---
-plot(nmds_august_bray$points, type = "n", main = "NMDS August (by Site, Bray-Curtis post-Hellinger)",
+plot(nmds_august_bray$points, type = "n", main = "NMDS August",
      xlab = "NMDS1", ylab = "NMDS2")
 
 for (s in unique(env_august$Site)) {
@@ -792,7 +785,7 @@ text(x = -0.6, y = 0.25,
      cex = 1, font = 2, pos = 4)
 
 # --- NMDS March-Site ---
-plot(nmds_march_bray$points, type = "n", main = "NMDS March (by Site, Bray-Curtis post-Hellinger)",
+plot(nmds_march_bray$points, type = "n", main = "NMDS March",
      xlab = "NMDS1", ylab = "NMDS2")
 
 for (s in unique(env_march$Site)) {
@@ -826,9 +819,6 @@ dist_march_bray <- as.dist(sub_mat_march)
 anosim_august_bray_type <- anosim(dist_august_bray, env_august$Type, permutations = 9999)
 anosim_march_bray_type  <- anosim(dist_march_bray,  env_march$Type,  permutations = 9999)
 
-cat("August (Type) Bray-Curtis post-Hellinger: R =", anosim_august_bray_type$statistic, "p =", anosim_august_bray_type$signif, "\n")
-cat("March (Type) Bray-Curtis post-Hellinger: R  =", anosim_march_bray_type$statistic,  "p =", anosim_march_bray_type$signif, "\n")
-
 r_august_bray_type <- round(anosim_august_bray_type$statistic, 3)
 p_august_bray_type <- format.pval(anosim_august_bray_type$signif, digits = 3, eps = .001)
 
@@ -839,11 +829,11 @@ p_march_bray_type <- format.pval(anosim_march_bray_type$signif, digits = 3, eps 
 nmds_august_bray_type <- metaMDS(dist_august_bray, k = 2, trymax = 100)
 nmds_march_bray_type  <- metaMDS(dist_march_bray, k = 2, trymax = 100)
 
-type_colors <- c("Apical" = "#FF8C00", "Sporophylls" = "#8B4500")
-type_shapes <- c("Apical" = 19, "Sporophylls" = 15)
+type_colors <- c("xx" = "#FF8C00", "xx" = "#8B4500")#<- Sample type name
+type_shapes <- c("xx" = 19, "xx" = 15)
 
 # --- NMDS August ---
-plot(nmds_august_bray_type$points, type = "n", main = "NMDS August (by Type, Bray-Curtis post-Hellinger)",
+plot(nmds_august_bray_type$points, type = "n", main = "NMDS August",
      xlab = "NMDS1", ylab = "NMDS2")
 
 for (t in unique(env_august$Type)) {
@@ -860,7 +850,7 @@ text(x = -0.6, y = -0.3,
      cex = 1, font = 2, pos = 4)
 
 # --- NMDS March ---
-plot(nmds_march_bray_type$points, type = "n", main = "NMDS March (by Type, Bray-Curtis post-Hellinger)",
+plot(nmds_march_bray_type$points, type = "n", main = "NMDS March",
      xlab = "NMDS1", ylab = "NMDS2")
 
 for (t in unique(env_march$Type)) {
@@ -962,7 +952,7 @@ library(betareg)
 library(emmeans)
 library(statmod)
 
-av2_est <- subset_samples(rarefied, Type == "Sporophylls" | Type == "Apical")
+av2_est <- subset_samples(rarefied, Type == "xx" | Type == "xx")#<- Sample type name
 genusabundance <- av2_est %>%
   tax_glom(taxrank = "Genus")%>%                     # agglomerate at genus level
   transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
@@ -1218,8 +1208,8 @@ Bac_16S_filt <- subset_samples(Bac_16S, Type != "Sea_Water")
 
 #CORE Type----
 #Subset data
-apicales <- subset_samples(Bac_16S_filt, Type == "Apical")
-sporophylls <- subset_samples(Bac_16S_filt, Type == "Sporophylls")
+apicales <- subset_samples(Bac_16S_filt, Type == "xx")#<- Sample type name
+sporophylls <- subset_samples(Bac_16S_filt, Type == "xx")
 #Make it relative
 apicales_rel <- transform_sample_counts(apicales, function(x) x / sum(x))
 sporophylls_rel <- transform_sample_counts(sporophylls, function(x) x / sum(x))
@@ -1233,11 +1223,11 @@ core_sporophylls <- core(sporophylls_rel, detection = 0.001, prevalence = 0.90)
 asv_apicales <- taxa_names(core_apicales)
 asv_sporophylls <- taxa_names(core_sporophylls)
 #Assign to list to manipulate data
-asv_apicales_list <- c("ASV_18","ASV_2","ASV_3","ASV_4","ASV_5","ASV_9" )
+asv_apicales_list <- c(xx, xx,.... ) #<-ID ASVs
 #Save list in .csv
 write.csv(asv_apicales_lista , "core_apical.csv", row.names = TRUE)
 #Assign to list to manipulate data
-asv_sporophylls_list <- c("ASV_10","ASV_17","ASV_2","ASV_3","ASV_4","ASV_5","ASV_6","ASV_9","ASV_33")
+asv_sporophylls_list <- c(xx, xx,....)#<-ID ASVs
 #Save list in .csv
 write.csv(asv_sporophylls_list, "core_sporophylls.csv", row.names = TRUE)
 #Read the .csv modified with the names of bacterial genera
@@ -1251,8 +1241,8 @@ asv_list <- list(
   Sporophylls = asv_sporophylls,
   Apical = asv_apical)
 #Subset data
-core_apical$Origen <- "Apical"
-core_sporophylls$Origen <- "Sporophylls"
+core_apical$Origen <- "xx"#<- Sample type name
+core_sporophylls$Origen <- "xx"#<- Sample type name
 core_total <- bind_rows(core_apical, core_sporophylls)
 
 asv_comunes <- intersect(asv_apical, asv_sporophylls)
@@ -1319,10 +1309,10 @@ asv_August <- taxa_names(core_August)
 asv_March <- taxa_names(core_March)
 
 #Assign to list to manipulate data
-asv_August <- c("ASV_13","ASV_2","ASV_30","ASV_36","ASV_4","ASV_5","ASV_6","ASV_9" )
+asv_August <- c("xx,xx, ....." )
 #Save list in .csv
 write.csv(asv_August, "core_August.csv", row.names = TRUE)
-asv_March <- c("ASV_10","ASV_11","ASV_17","ASV_19","ASV_2","ASV_22","ASV_3","ASV_4","ASV_7","ASV_9","ASV_33")
+asv_March <- c("xx, xx,....")
 write.csv(asv_March, "core_March.csv", row.names = TRUE)
 
 #Read the .csv modified with the names of bacterial genera
@@ -1431,7 +1421,7 @@ pa_matrix <- data.frame(
 pa_matrix <- left_join(pa_matrix, asv_tax, by = "ASV")
 
 pa_long <- pa_matrix %>%
-  pivot_longer(cols = c("Apical", "Sporophylls", "August", "March"),
+  pivot_longer(cols = c("xx", "xx", "xx", "xx"),#<- Sample date and type name
                names_to = "Grupo", values_to = "Presencia")
 
 genus_order <- pa_long %>%
