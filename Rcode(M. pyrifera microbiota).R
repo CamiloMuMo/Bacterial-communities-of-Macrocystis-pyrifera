@@ -9,7 +9,7 @@ library(phyloseq)
 ###Read file to work
 taxa.silva <- read_excel("taxa.silva.xlsx")
 ###Clean data
-clean.16S <- decon(data = as.data.frame(taxa.silva),numb.blanks=,numb.ind=66,taxa=F) #<- Adjust according to your data
+clean.16S <- decon(data = as.data.frame(taxa.silva),numb.blanks=,numb.ind=66,taxa=F) #<- Adjust according to the data
 clean.16S<-clean.16S$decon.table
 clean.16S<-clean.16S[,-2]
 dim(clean.16S)
@@ -43,7 +43,7 @@ abline(0, 1)
 rarecurve(rarefaction, step = 20, col = "#404788FF", main="Rarefaction Curves 16S", ylab="ASV Observed", cex=0.8)
 
 names=colnames(df)
-#REad file taxa.silva.txt 
+#Read file taxa.silva.txt 
 table<-read.table("taxa.silva.txt", header = T, sep="\t")
 table<-table[,1:2]
 names=colnames(df)
@@ -122,7 +122,7 @@ library(phyloseq)
 library(dplyr)
 library(patchwork)
 #Subset data
-subset<-subset_samples(Bac_16S,  Type != "Sea_Water"  )
+subset<-subset_samples(Bac_16S,  Type != "xx"  ) # <- Exclude sea water
 sample_sums(subset)
 #Rarefy data 
 rarefied<-rarefy_even_depth(subset, sample.size = min(sample_sums(subset)),
@@ -137,7 +137,7 @@ p<-plot_richness(rarefied, x="Type", measures=c("Chao1"))+
         axis.text.y.left = element_text(size = 15),
         axis.title.x = element_text(size = 15),
         axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1),
-        axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))
+        axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('xx', 'xx', 'xx'))) #<- Sample site name
 
 newSTorder = c("xx","xx") #<- Sample type name
 p$data$Type <- as.character(p$data$Type)
@@ -145,7 +145,7 @@ p$data$Type <- factor(p$data$Type, levels=newSTorder)
 print(p)
 
 #Sort by Type
-p$data$Type <- factor(p$data$Type, levels = c("xx", "xx"))#<- Sample type name
+p$data$Type <- factor(p$data$Type, levels = c("xx", "xx")) #<- Sample type name
 
 p1<-plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
   geom_boxplot(aes(fill = Type), alpha = 0.7, outlier.shape = NA) +
@@ -479,7 +479,7 @@ WSP<-(p5 | p6) / (w5 | w6)
 WSP
 ###Class----
 
-abundance_class <- rarefied %>%
+abundance_class <- rarefied %>% # <- Same flow applicable for Order
   tax_glom(taxrank = "Class")%>%                     # agglomerate at genus level
   transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
   psmelt() %>%                                         # Melt to long format
@@ -554,82 +554,6 @@ p8<- p8 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bol
 class_plot <- (p7 | p8) 
 class_plot
 
-###Order----
-orderabundance <- rarefied %>%
-  tax_glom(taxrank = "Order")%>%                     # agglomerate at genus level
-  transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
-  psmelt() %>%                                         # Melt to long format
-  arrange(Order) 
-head(orderabundance)
-
-all_order <- orderabundance %>%
-  filter(Type != "Sea_Water") %>%
-  select(Order,Type,Date,Abundance) %>%
-  group_by(Type, Date, Order) %>%
-  summarize(
-    avg_abundance = mean(Abundance)) %>%
-  filter(avg_abundance >= 0.05)
-head(all_order)
-write.csv(all_order,file="order.csv")
-
-unique(all_order$Order)
-
-colors5 <- c(Arenicellales="plum4",Caulobacterales="#CAACCB",Verrucomicrobiales="#FF0000", Enterobacterales="#882E72", Flavobacteriales="mediumpurple4",
-             Thiotrichales="lightgoldenrod1", Chitinophagales ="#BCEE68",Granulosicoccales="navy",Nitrosopumilales ="#DC050C", Phormidesmiales="#FF1493",
-             "SAR11 clade" ="#008B00",Campylobacterales="pink",  Pirellulales="#437DBF", Pseudomonadales="#521913", Bacteroidales = "#777777", Rhodobacterales="#4EB265", 
-             Synechococcales="#CAE0AB", Micrococcales = "#E7EBFA") 
-  geom_col(aes(
-    x = factor(Date, levels = c("xx", "xx")),#<- Sample date name
-    y = avg_abundance,
-    fill = Order
-  ),
-  position = "fill",
-  show.legend = FALSE,
-  width = 0.8,
-  colour = "black"
-  ) +
-  ylab("Relative abundance (%)") +
-  xlab("") +
-  facet_grid(. ~ factor(Type, levels = c("xx", "xx"))) +#<- Sample type name
-  my_theme+
-  scale_y_continuous(labels = scales::percent) +
-  scale_fill_manual(values = colors5, drop = FALSE) 
-
-all_order_site <- orderabundance %>%
-  filter(Type != "Sea_Water") %>%
-  select(Order,Site,Date,Abundance) %>%
-  group_by(Site, Date, Order) %>%
-  summarize(
-    avg_abundance = mean(Abundance)) %>%
-  filter(avg_abundance >= 0.05)
-head(all_order)
-
-colors5 <- c(Arenicellales="plum4",Caulobacterales="#CAACCB",Verrucomicrobiales="#FF0000", Enterobacterales="#882E72", Flavobacteriales="mediumpurple4",
-             Thiotrichales="lightgoldenrod1", Chitinophagales ="#BCEE68",Granulosicoccales="navy",Nitrosopumilales ="#DC050C", Phormidesmiales="#FF1493",
-             "SAR11 clade" ="#008B00",Campylobacterales="pink",  Pirellulales="#437DBF", Pseudomonadales="#521913", Bacteroidales = "#777777", Rhodobacterales="#4EB265", 
-             Synechococcales="#CAE0AB", Micrococcales = "#E7EBFA") 
-p10<-ggplot(filter(all_order_site )) +
-  geom_col(mapping = aes(
-    x = factor(Date, levels = c("xx", "xx")),#<- Sample date name
-    y = avg_abundance,
-    fill = Order
-  ),
-  position = "fill",
-  show.legend = TRUE,
-  width = 0.8,
-  colour = "black"
-  ) +
-  ylab("") +
-  xlab("") +
-  facet_grid(. ~ factor(Site, levels = c("xx", "xx", "xx"))) +  # facet por sitio
-  my_theme+
-  scale_y_continuous(labels = scales::percent) +
-  scale_fill_manual(values = colors5)
-
-p9 <- p9 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"),plot.tag.position = c(0.03, 0.98))
-p10<- p10 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98))
-orden_plot <- (p9 | p10) 
-orden_plot
 
 #AMP figure----
 library(ampvis2)
@@ -700,7 +624,7 @@ amp_plot <- (p11 | p12)
 amp_plot
 
 #############-------------Beta diversty-----------------####################
-#ANOSIM-NMDS (bray)
+#ANOSIM-NMDS 
 #-----Site
 library(phyloseq)
 library(vegan)
@@ -722,14 +646,14 @@ if (taxa_are_rows(subset_rarefied)) {
 }
 
 # Hellinger
-otu_hellinger <- decostand(otu_mat, method = "hellinger")
+otu_hellinger <- decostand(otu_mat, method = "hellinger") # Select method
 
 # Bray-Curtis post-Hellinger
 dist_hell_bray <- vegdist(otu_hellinger, method = "bray")
 
 meta_df <- as(sample_data(subset_rarefied), "data.frame")
 
-env_august <- meta_df[meta_df$Date == "August", ]
+env_august <- meta_df[meta_df$Date == "August", ] # <- Date of interest
 env_march <- meta_df[meta_df$Date == "March", ]
 env_august$ID <- rownames(env_august)
 env_march$ID <- rownames(env_march)
@@ -768,7 +692,7 @@ r_march_site_bray <- round(anosim_march_site_bray$statistic, 3)
 p_march_site_bray <- format.pval(anosim_march_site_bray$signif, digits = 3, eps = .001)
 
 # --- NMDS August-Site ---
-plot(nmds_august_bray$points, type = "n", main = "NMDS August",
+plot(nmds_august_bray$points, type = "n", main = "xx",
      xlab = "NMDS1", ylab = "NMDS2")
 
 for (s in unique(env_august$Site)) {
@@ -785,7 +709,7 @@ text(x = -0.6, y = 0.25,
      cex = 1, font = 2, pos = 4)
 
 # --- NMDS March-Site ---
-plot(nmds_march_bray$points, type = "n", main = "NMDS March",
+plot(nmds_march_bray$points, type = "n", main = "xx",
      xlab = "NMDS1", ylab = "NMDS2")
 
 for (s in unique(env_march$Site)) {
@@ -833,7 +757,7 @@ type_colors <- c("xx" = "#FF8C00", "xx" = "#8B4500")#<- Sample type name
 type_shapes <- c("xx" = 19, "xx" = 15)
 
 # --- NMDS August ---
-plot(nmds_august_bray_type$points, type = "n", main = "NMDS August",
+plot(nmds_august_bray_type$points, type = "n", main = "xx",
      xlab = "NMDS1", ylab = "NMDS2")
 
 for (t in unique(env_august$Type)) {
@@ -850,7 +774,7 @@ text(x = -0.6, y = -0.3,
      cex = 1, font = 2, pos = 4)
 
 # --- NMDS March ---
-plot(nmds_march_bray_type$points, type = "n", main = "NMDS March",
+plot(nmds_march_bray_type$points, type = "n", main = "xx",
      xlab = "NMDS1", ylab = "NMDS2")
 
 for (t in unique(env_march$Type)) {
@@ -870,7 +794,7 @@ text(x = 0.35, y = -0.2,
 par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
 # ------------------- A. NMDS August por Site (Bray) -------------------
 plot(nmds_august_bray$points, type = "n", 
-     main = "Site (August)",
+     main = "xx",
      xlab = "NMDS1", ylab = "NMDS2",
      cex.main = 1.5, cex.lab = 1.4, cex.axis = 1.2)
 
@@ -890,7 +814,7 @@ mtext("A", side = 3, line = 1, adj = 0, cex = 1.5, font = 2)
 
 # ------------------- B. NMDS March por Site (Bray) -------------------
 plot(nmds_march_bray$points, type = "n", 
-     main = "Site (March)",
+     main = "xx",
      xlab = "NMDS1", ylab = "NMDS2",
      cex.main = 1.5, cex.lab = 1.4, cex.axis = 1.2)
 
@@ -909,7 +833,7 @@ text(x = 0.3, y = 0.22,
 mtext("B", side = 3, line = 1, adj = 0, cex = 1.5, font = 2)
 # ------------------- C. NMDS August por Type (Bray) -------------------
 plot(nmds_august_bray_type$points, type = "n", 
-     main = "Type (August)",
+     main = "xx",
      xlab = "NMDS1", ylab = "NMDS2",
      cex.main = 1.5, cex.lab = 1.4, cex.axis = 1.2)
 
@@ -928,7 +852,7 @@ text(x = 0.01, y = 0.4,
 mtext("C", side = 3, line = 1, adj = 0, cex = 1.5, font = 2)
 # ------------------- D. NMDS March por Type (Bray) -------------------
 plot(nmds_march_bray_type$points, type = "n", 
-     main = "Type (March)",
+     main = "xx",
      xlab = "NMDS1", ylab = "NMDS2",
      cex.main = 1.5, cex.lab = 1.4, cex.axis = 1.2)
 
@@ -965,7 +889,7 @@ test <- genusabundance %>%
   group_by(Genus, Site,Type, Date,Sample) %>%
   summarize(
     avg_abundance = mean(Abundance)) 
-#Run the models for the most abundant genera
+#Run the models for the most abundant genera according to to the Heat map
 Psychromonas<-test[test$Genus=="Psychromonas",]
 Psychromonas$Type <- factor(Psychromonas$Type)
 Psychromonas$Site <- factor(Psychromonas$Site)
