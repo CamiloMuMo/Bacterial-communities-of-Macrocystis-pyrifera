@@ -16,7 +16,7 @@ pathF <- "R1"
 pathR <- "R2"
 fastqFsq <- sort(list.files(pathF, pattern="R1.fastq", full.names=TRUE))
 fastqRsq <- sort(list.files(pathR, pattern="R2.fastq", full.names=TRUE))
-sample.names <- sapply(strsplit(basename(fastqFsq), ".R1."), `[`, 1) # CHANGE WITH SEQUENCE NAMES. Extract sample names. This can be variable in different projects
+sample.names <- sapply(strsplit(basename(fastqFsq), ".R1."), `[`, 1) # CHANGE WITH SEQUENCE NAMES. Extract sample names
 
 # Reading quality profiles (F)
 plotQualityProfile(fastqFsq[1:2])
@@ -24,7 +24,7 @@ plotQualityProfile(fastqFsq[1:2])
 plotQualityProfile(fastqRsq[1:2])
 
 message("STEP2: FILTERING")
-### filtering is performed with 6 different parameters and the best results is selected
+
 message("File parsing")
 pathF <- "R1"
 pathR <- "R2"
@@ -106,8 +106,8 @@ nochim <- rowSums(seqtab)
 write.table(nochim, "nochim_filter.txt")
 
 message("Assign taxonomy with Silva")
-taxa.silva <- assignTaxonomy(seqtab, file.path("your datasets"), minBoot = 80, multithread=TRUE, verbose=TRUE)
-species.silva <- addSpecies(taxa.silva, file.path("your datasets"), verbose=TRUE) # Assign species
+taxa.silva <- assignTaxonomy(seqtab, file.path("silva_nr99_v138.1_train_set.fa.gz"), minBoot = 80, multithread=TRUE, verbose=TRUE)
+species.silva <- addSpecies(taxa.silva, file.path("silva_species_assignment_v138.1.fa.gz"), verbose=TRUE) # Assign species
 saveRDS(taxa.silva, file.path("taxa.silva.rds"))
 saveRDS(species.silva, file.path("species.silva.rds"))
 
