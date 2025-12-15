@@ -144,7 +144,7 @@ p$data$Type <- as.character(p$data$Type)
 p$data$Type <- factor(p$data$Type, levels=newSTorder)
 print(p)
 
-#Sort by Type
+#Sort by Type (Apical, Sporophyll)
 p$data$Type <- factor(p$data$Type, levels = c("xx", "xx")) #<- Sample type name
 
 p1<-plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
@@ -161,7 +161,7 @@ p1<-plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
   ) +
   ylab("Alpha diversity measure")
 
-#Sort by Site
+#Sort by Site (Bahia Buzo, San Gregorio, Buque Quemado)
 sample_data(rarefied)$Site <- factor(sample_data(rarefied)$Site, levels = c("xx", "xx", "xx")) #<- Sample site name
 p2<- plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
   geom_boxplot(aes(fill = Site), alpha = 0.7, outlier.shape = NA) +
@@ -276,7 +276,7 @@ print(final_plot)
 #############-------------Figures-----------------####################
 ###Phylum----
 phylumabundance <- Bac_16S %>%
-  tax_glom(taxrank = "Phylum")%>%                     # agglomerate at genus level
+  tax_glom(taxrank = "Phylum")%>%                     # agglomerate at phylum level
   transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
   psmelt() %>%                                         # Melt to long format
   arrange(Phylum) 
@@ -480,7 +480,7 @@ WSP
 ###Class----
 
 abundance_class <- rarefied %>% # <- Same flow applicable for Order
-  tax_glom(taxrank = "Class")%>%                     # agglomerate at genus level
+  tax_glom(taxrank = "Class")%>%                     # agglomerate at class level
   transform_sample_counts(function(x) {x/sum(x)} ) %>% # Transform to rel. abundance
   psmelt() %>%                                         # Melt to long format
   arrange(Class) 
