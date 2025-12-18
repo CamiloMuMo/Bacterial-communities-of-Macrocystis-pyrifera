@@ -114,7 +114,9 @@ samples = sample_data(samples_df)
 #Create phyloseq Object
 Bac_16S <- phyloseq(ASV, TAX, samples)
 #Subset
+Bac_16S<-Bac_16S %>% subset_taxa(Phylum !="Archaea")     
 Bac_16S<-Bac_16S %>% subset_taxa(Order != "Chloroplast")     
+Bac_16S<-Bac_16S %>% subset_taxa(Family !="Mitochondria")     
 
 #############-------------Alpha diversty-----------------####################
 library(ggplot2)
