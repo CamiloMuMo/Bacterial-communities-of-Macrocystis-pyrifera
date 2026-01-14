@@ -114,7 +114,7 @@ samples = sample_data(samples_df)
 #Create phyloseq Object
 Bac_16S <- phyloseq(ASV, TAX, samples)
 #Subset
-Bac_16S<-Bac_16S %>% subset_taxa(Phylum !="Archaea")     
+Bac_16S<-Bac_16S %>% subset_taxa(Kingdom !="Archaea")     
 Bac_16S<-Bac_16S %>% subset_taxa(Order != "Chloroplast")     
 Bac_16S<-Bac_16S %>% subset_taxa(Family !="Mitochondria")     
 
@@ -132,149 +132,188 @@ rarefied<-rarefy_even_depth(subset, sample.size = min(sample_sums(subset)),
 sample_sums(rarefied)
 otu_table(rarefied)
 
-#calculated alpha diversity (Chao1)) to make basic plot with ggplot
-p<-plot_richness(rarefied, x="Type", measures=c("Chao1"))+
+#calculated alpha diversity (Shannon)) to make basic plot with ggplot
+p<-plot_richness(rarefied, x="Type", measures=c("Shannon"))+
   geom_boxplot(alpha=1)+
   theme(strip.text.x= element_text(size=18),
-        axis.text.y.left = element_text(size = 15),
-        axis.title.x = element_text(size = 15),
-        axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1),
-        axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('xx', 'xx', 'xx'))) #<- Sample site name
+        axis.text.y.left = element_text(size = 18),
+        axis.title.x = element_text(size = 12),
+        strip.text.y = element_text(size=18),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(size = 15))+ xlab("")+ 
+  facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))+
+  stat_compare_means(method="wilcox.test",label.y.npc = 0.95, label.x = 1.3, position = position_nudge(y = 0.2), size = 5)+
+  scale_y_continuous(limits = c(2, 6.5), expand = expansion(mult = c(0, 0.1)))
 
-newSTorder = c("xx","xx") #<- Sample type name
-p$data$Type <- as.character(p$data$Type)
-p$data$Type <- factor(p$data$Type, levels=newSTorder)
-print(p)
-
-#Sort by Type (Apical, Sporophyll)
-p$data$Type <- factor(p$data$Type, levels = c("xx", "xx")) #<- Sample type name
-
-p1<-plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
-  geom_boxplot(aes(fill = Type), alpha = 0.7, outlier.shape = NA) +
-  facet_wrap(~Type, nrow = 1) +
-  scale_fill_manual(values = c("xx" = "#C0FF3E", "xx" = "#698B22")) +
-  theme_minimal(base_size = 14) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    strip.text = element_text(size = 20),
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 18),
-    legend.position = "none"
-  ) +
-  ylab("Alpha diversity measure")
-
-#Sort by Site (Bahia Buzo, San Gregorio, Buque Quemado)
-sample_data(rarefied)$Site <- factor(sample_data(rarefied)$Site, levels = c("xx", "xx", "xx")) #<- Sample site name
-p2<- plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
-  geom_boxplot(aes(fill = Site), alpha = 0.7, outlier.shape = NA) +
-  facet_wrap(~Site, nrow = 1) +
-  theme_minimal(base_size = 14) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    strip.text = element_text(size = 20),
-    axis.title.x = element_blank(),
-    axis.title.y = element_text(size = 18),
-    legend.position = "none"
-  ) +
-  ylab("")
-
-#Nonparametrical analysis
-kruskal.test(value ~ Site, data = p$data)
-kruskal.test(value ~ Date, data = p$data)
-kruskal.test(value ~ Type, data = p$data)
-#Post hoc
-pairwise.wilcox.test(p$data$value, p$data$Site, p.adjust.method = "holm")
-#Diversity by date
-p$data %>%
-  group_by(Date) %>%
-  summarise(
-    mean_diversity = mean(value),
-    median_diversity = median(value),
-    sd_diversity = sd(value),
-    n = n()
-  )
-
-#calculated alpha diversity (Shannon) to make basic plot with ggplot
-p<-plot_richness(subset, x="Type", measures=c("Shannon"))+
-  geom_boxplot(alpha=1)+
-  theme(strip.text.x= element_text(size=18),
-        axis.text.y.left = element_text(size = 15),
-        axis.title.x = element_text(size = 15),
-        axis.text.x = element_text(size = 12, angle = 45, vjust = 1, hjust = 1),
-        axis.title.y = element_text(size = 15))+ xlab("")+ facet_grid(Date~factor(Site, levels=c('xx', 'xx', 'xx')))#<- Sample site name
-newSTorder = c("xx","xx") #<- Sample type name
+newSTorder = c("Apical","Sporophylls")
 p$data$Type <- as.character(p$data$Type)
 p$data$Type <- factor(p$data$Type, levels=newSTorder)
 print(p)
 
 #Sort by Type
-p$data$Type <- factor(p$data$Type, levels = c("xx", "xx"))#<- Sample type name
-p3<- plot_richness(subset, x = "Date", measures = c("Shannon")) +
+p$data$Type <- factor(p$data$Type, levels = c("Apical", "Sporophylls"))
+
+p1<-plot_richness(rarefied, x = "Date", measures = c("Shannon")) +
   geom_boxplot(aes(fill = Type), alpha = 0.7, outlier.shape = NA) +
   facet_wrap(~Type, nrow = 1) +
-  scale_fill_manual(values = c("xx" = "#C0FF3E", "xx" = "#698B22")) +
+  scale_fill_manual(values = c("Apical" = "#C0FF3E", "Sporophylls" = "#698B22")) +
   theme_minimal(base_size = 14) +
   theme(
-    axis.text.x = element_text(size = 20, angle = 45, hjust = 1),  
-    axis.text.y = element_text(size = 16),                         
-    strip.text = element_text(size = 20),
+    axis.text.x = element_text(angle = 45, hjust = 1,size = 18),
+    strip.text = element_text(size = 18),
     axis.title.x = element_blank(),
     axis.title.y = element_text(size = 18),
+    axis.text.y = element_text(size = 18),
     legend.position = "none"
   ) +
-  ylab("Alpha diversity measure")
+  ylab("Alpha diversity measure")+
+  stat_compare_means(method="wilcox.test",label.x.npc = 0,position = position_nudge(y = 0.15))+
+  labs(title = "")+
+  theme(plot.title = element_text(size = 20, face = "bold"))
+print(p1)
 
 #Sort by Site
-sample_data(subset)$Site <- factor(sample_data(subset)$Site, levels = c("xx", "xx", "xx"))#<- Sample site name
-p4 <-plot_richness(subset, x = "Date", measures = c("Shannon")) +
+my_comparisons <- list(c("Bahia_Buzo", "San_Gregorio"), 
+                       c("San_Gregorio", "Buque_Quemado"),
+                       c("Bahia_Buzo", "Buque_Quemado"))
+p2<-plot_richness(rarefied, x="Site", measures=c("Shannon"))+
+  geom_boxplot(alpha=1)+
+  theme(strip.text.x= element_text(size=18),
+        axis.text.y.left = element_text(size = 18),
+        axis.title.x = element_text(size = 12),
+        strip.text.y = element_text(size=18),
+        axis.text.x = element_blank(),,
+        axis.title.y = element_blank(),)+ xlab("")+ 
+  facet_grid(Date~factor(Type, levels=c('Apical', 'Sporophylls')))+
+  stat_compare_means(comparisons = my_comparisons, 
+                     method = "wilcox.test",
+                     label = "p.signif",
+                     label.y.npc = c(0.95, 0.88, 0.81),
+                     vjust = 0.1,
+                     size = 5) + 
+  scale_y_continuous(limits = c(0, 8), expand = expansion(mult = c(0, 0.15)))
+
+print(p2)
+
+sample_data(rarefied)$Site <- factor(sample_data(rarefied)$Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))
+p3<- plot_richness(rarefied, x = "Date", measures = c("Shannon")) +
   geom_boxplot(aes(fill = Site), alpha = 0.7, outlier.shape = NA) +
   facet_wrap(~Site, nrow = 1) +
   theme_minimal(base_size = 14) +
   theme(
-    axis.text.x = element_text(size = 20, angle = 45, hjust = 1),  
-    axis.text.y = element_text(size = 16),                         
-    strip.text = element_text(size = 20),
+    axis.text.x = element_text(size = 18, angle = 45, hjust = 1),
+    strip.text = element_text(size = 18),
     axis.title.x = element_blank(),
     axis.title.y = element_text(size = 18),
+    axis.text.y = element_text(size = 18),
     legend.position = "none"
   ) +
-  ylab("")
+  ylab("")+
+  stat_compare_means(method = "wilcox.test",label.y.npc = 1) +
+  labs(title = "")+
+  theme(plot.title = element_text(size = 20, face = "bold"))+
+  scale_y_continuous(limits = c(2, 6.5), expand = expansion(mult = c(0, 0.15)))
+print(p3)
+#Chao1
+p4<-plot_richness(rarefied, x="Type", measures=c("Chao1"))+
+  geom_boxplot(alpha=1)+
+  theme(strip.text.x= element_text(size=18),
+        axis.text.y.left = element_text(size = 18),
+        axis.title.x = element_text(size = 12),
+        strip.text.y = element_text(size=18),
+        axis.text.x = element_text(size = 18, angle = 45, vjust = 1, hjust = 1),
+        axis.title.y = element_text(size = 15))+ xlab("")+ 
+  facet_grid(Date~factor(Site, levels=c('Bahia_Buzo', 'San_Gregorio', 'Buque_Quemado')))+
+  stat_compare_means(method="wilcox.test",label.y.npc = 0.95,label.x = 1.3,position = position_nudge(y = 0.15), size = 5)+
+  scale_y_continuous(limits = c(0, 1800), expand = expansion(mult = c(0, 0.1)))
 
-#Nonparametrical analysis
-kruskal.test(value ~ Site, data = p$data)
-kruskal.test(value ~ Date, data = p$data)
-kruskal.test(value ~ Type, data = p$data)
-#Post hoc
-pairwise.wilcox.test(p$data$value, p$data$Site, p.adjust.method = "holm")
-#Diversity by date
-p$data %>%
-  group_by(Date) %>%
-  summarise(
-    mean_diversity = mean(value),
-    median_diversity = median(value),
-    sd_diversity = sd(value),
-    n = n()
-  )
+newSTorder = c("Apical","Sporophylls")
+p$data$Type <- as.character(p$data$Type)
+p$data$Type <- factor(p$data$Type, levels=newSTorder)
+print(p4)
 
-#Final plot Chao1 + Shannon
-final_plot <- (p1 | p2) /
-  (p3 | p4)
-print(final_plot)
+#Sort by Type
+p$data$Type <- factor(p$data$Type, levels = c("Apical", "Sporophylls"))
 
+p5<-plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
+  geom_boxplot(aes(fill = Type), alpha = 0.7, outlier.shape = NA) +
+  facet_wrap(~Type, nrow = 1) +
+  scale_fill_manual(values = c("Apical" = "#C0FF3E", "Sporophylls" = "#698B22")) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1,size = 18),
+    strip.text = element_text(size = 18),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 18),
+    axis.text.y = element_text(size = 18),
+    legend.position = "none"
+  ) +
+  ylab("Alpha diversity measure")+
+  stat_compare_means(method="wilcox.test",label.x.npc = 0,position = position_nudge(y = 0.15))+
+  labs(title = "")+
+  theme(plot.title = element_text(size = 20, face = "bold"))
+print(p5)
+
+#Sort by Site
+my_comparisons <- list(c("Bahia_Buzo", "San_Gregorio"), 
+                       c("San_Gregorio", "Buque_Quemado"),
+                       c("Bahia_Buzo", "Buque_Quemado"))
+p6<-plot_richness(rarefied, x="Site", measures=c("Chao1"))+
+  geom_boxplot(alpha=1)+
+  theme(strip.text.x= element_text(size=18),
+        axis.text.y.left = element_text(size = 15),
+        axis.title.x = element_text(size = 12),
+        strip.text.y = element_text(size=18),
+        axis.text.x = element_text(size = 18, angle = 45, vjust = 1, hjust = 1),
+        axis.title.y = element_blank())+ xlab("")+ 
+  facet_grid(Date~factor(Type, levels=c('Apical', 'Sporophylls')))+
+  stat_compare_means(comparisons = my_comparisons, 
+                     method = "wilcox.test",
+                     label = "p.signif",
+                     label.y.npc = c(0.95, 0.88, 0.81),
+                     , size = 5) + 
+  scale_y_continuous(limits = c(0, 2000), expand = expansion(mult = c(0, 0.15)))
+
+print(p6)
+
+unique(p$data$variable)
+sample_data(rarefied)$Site <- factor(sample_data(rarefied)$Site, levels = c("Bahia_Buzo", "San_Gregorio", "Buque_Quemado"))
+p7<- plot_richness(rarefied, x = "Date", measures = c("Chao1")) +
+  geom_boxplot(aes(fill = Site), alpha = 0.7, outlier.shape = NA) +
+  facet_wrap(~Site, nrow = 1) +
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text.x = element_text(size = 18, angle = 45, hjust = 1),
+    strip.text = element_text(size = 18),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 18),
+    axis.text.y = element_text(size = 18),
+    legend.position = "none"
+  ) +
+  ylab("")+
+  stat_compare_means(method = "wilcox.test",label.y.npc = 1) +
+  labs(title = "")+
+  theme(plot.title = element_text(size = 20, face = "bold"))+
+  scale_y_continuous(limits = c(2, 1600), expand = expansion(mult = c(0, 0.15)))
+print(p7)
+#Figura Sup.
 p1 <- p1 + theme(axis.text.x = element_blank())
-p2 <- p2 + theme(axis.text.x = element_blank())
+p3 <- p3 + theme(axis.text.x = element_blank())
 
-p3 <- p3 + theme(strip.text.x = element_blank()) 
-p4 <- p4 + theme(axis.title.x = element_blank(), strip.text.x = element_blank())
+p5 <- p5 + labs(tag = "C") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.95))  # (x, y) entre 0 y 1)
+p7 <- p7 + labs(tag = "D") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.01, 0.95)) 
+p1 <- p1 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98)) 
+p3 <- p3 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.01, 0.98)) 
 
-p1 <- p1 + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.95))  # (x, y) entre 0 y 1)
-p2 <- p2 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.01, 0.95)) 
-p3 <- p3 + labs(tag = "C") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98)) 
-p4 <- p4 + labs(tag = "D") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.01, 0.98)) 
-
-final_plot <- (p1 | p2) / (p3 | p4)
+final_plot <- (p1 | p3)/ (p5 | p7)
 print(final_plot)
-
+#Fig. paper
+p <- p + labs(tag = "A") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.95))  # (x, y) entre 0 y 1)
+p2 <- p2 + labs(tag = "B") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.01, 0.95)) 
+p4 <- p4 + labs(tag = "C") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.03, 0.98)) 
+p6 <- p6 + labs(tag = "D") + theme(plot.tag = element_text(size = 20, face = "bold"), plot.tag.position = c(0.01, 0.98)) 
+plot <- (p | p2) / (p4 | p6)
+plot
 #############-------------Figures-----------------####################
 ###Phylum----
 phylumabundance <- Bac_16S %>%
@@ -1305,134 +1344,231 @@ venn_date_plot <-venn +
   annotate("text", x = -1.5, y = 2.2, label = texto_inter_date, size = 6, hjust = 0, fontface = "italic") +
   annotate("text", x = -1.1, y = -1.7, label = texto_march, size = 6, hjust = 0, fontface = "italic")
 
+# CORE Site ----
+#Subset data
+BB <- subset_samples(Bac_16S_filt, Site == "Bahia_Buzo")
+SG <- subset_samples(Bac_16S_filt, Site == "San_Gregorio")
+BQ <- subset_samples(Bac_16S_filt, Site == "Buque_Quemado")
 
-#Combined plot (Type + Date)
-library(tidyr)
+
+#Make it relative
+BB_rel <- transform_sample_counts(BB, function(x) x / sum(x))
+SG_rel <- transform_sample_counts(SG, function(x) x / sum(x))
+BQ_rel <- transform_sample_counts(BQ, function(x) x / sum(x))
+
+otu_table(BB_rel) <- otu_table(BB_rel, taxa_are_rows = TRUE)
+otu_table(SG_rel) <- otu_table(SG_rel, taxa_are_rows = TRUE)
+otu_table(BQ_rel) <- otu_table(BQ_rel, taxa_are_rows = TRUE)
+
+#Pick the core 
+core_BB <- core(BB_rel, detection = 0.001, prevalence = 0.90)
+core_SG <- core(SG_rel, detection = 0.001, prevalence = 0.90)
+core_BQ <- core(BQ_rel, detection = 0.001, prevalence = 0.90)
+
+asv_BB <- taxa_names(core_BB)
+asv_SG <- taxa_names(core_SG)
+asv_BQ <- taxa_names(core_BQ)
+
+#Assign to list to manipulate data
+asv_BB <- c("ASV_10","ASV_14","ASV_2","ASV_4","ASV_5","ASV_9" )
+#Save list in .csv
+#write.csv(asv_BB, "core_BB.csv", row.names = TRUE)
+asv_SG <- c("ASV_2","ASV_3","ASV_4","ASV_9")
+#write.csv(asv_SG, "core_SG.csv", row.names = TRUE)
+asv_BQ <- c("ASV_10","ASV_13","ASV_17","ASV_18","ASV_19","ASV_2","ASV_21","ASV_22","ASV_27",
+            "ASV_3","ASV_30","ASV_36","ASV_4","ASV_5","ASV_50","ASV_6","ASV_9","ASV_103","ASV_94")
+#write.csv(asv_BQ, "core_BQ.csv", row.names = TRUE)
+
+#Read the .csv modified with the names of bacterial genera
+core_BB_df <- read.csv("core_BB.csv")
+core_SG_df <- read.csv("core_SG.csv")
+core_BQ_df <- read.csv("core_BQ.csv")
+
+
 library(dplyr)
-library(ggplot2)
-library(patchwork)
+
+core_BB_df$ASV <- as.character(core_BB_df$ASV)
+core_SG_df$ASV <- as.character(core_SG_df$ASV)
+core_BQ_df$ASV <- as.character(core_BQ_df$ASV)
+
+
+asv_list <- list(
+  Bahia_Buzo = asv_BB,
+  San_Gregorio = asv_SG,
+  Buque_Quemado =  asv_BQ
+  )
+
+core_BB_df$Origen <- "Bahia_Buzo"
+core_SG_df$Origen <- "San_Gregorio"
+core_BQ_df$Origen <- "Buque_Quemado"
+
+core_total <- bind_rows(core_BB_df, core_SG_df, core_BQ_df)
+
+
+# Inter
+asv_BB <- unique(core_BB_df$ASV)
+asv_SG <- unique(core_SG_df$ASV)
+asv_BQ <- unique(core_BQ_df$ASV)
+
+asv_comun_site <- Reduce(intersect, list(asv_BB, asv_SG, asv_BQ))
+asv_solo_BB <- setdiff(asv_BB, union(asv_SG, asv_BQ))
+asv_solo_SG <- setdiff(asv_SG, union(asv_BB, asv_BQ))
+asv_solo_BQ <- setdiff(asv_BQ, union(asv_BB, asv_SG))
+
+asv_BB_SG <- setdiff(intersect(asv_BB, asv_SG), asv_BQ)
+asv_BB_BQ <- setdiff(intersect(asv_BB, asv_BQ), asv_SG)
+asv_SG_BQ <- setdiff(intersect(asv_SG, asv_BQ), asv_BB)
+
+gen_por_region <- function(asvs, df) {
+  df %>%
+    filter(ASV %in% asvs) %>%
+    distinct(ASV, .keep_all = TRUE) %>%
+    group_by(Genus) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    mutate(texto = paste0(Genus, " (", n, ")"))
+}
+gen_BB      <- gen_por_region(asv_solo_BB, core_BB_df)
+gen_SG      <- gen_por_region(asv_solo_SG, core_SG_df)
+gen_BQ      <- gen_por_region(asv_solo_BQ, core_BQ_df)
+
+gen_BB_SG   <- gen_por_region(asv_BB_SG, core_total)
+gen_BB_BQ   <- gen_por_region(asv_BB_BQ, core_total)
+gen_SG_BQ   <- gen_por_region(asv_SG_BQ, core_total)
+
+gen_all     <- gen_por_region(asv_comun_site, core_total)
+split_two_columns <- function(x) {
+  n <- length(x)
+  mid <- ceiling(n / 2)
+  col1 <- x[1:mid]
+  col2 <- x[(mid + 1):n]
+  
+  # rellenar con "" si están desbalanceadas
+  if (length(col1) > length(col2)) {
+    col2 <- c(col2, rep("", length(col1) - length(col2)))
+  }
+  
+  paste(col1, col2, sep = "    ", collapse = "\n")
+}
+
+texto_BB    <- paste(gen_BB$texto, collapse = "\n")
+texto_SG    <- paste(gen_SG$texto, collapse = "\n")
+texto_BQ <- split_two_columns(gen_BQ$texto)
+
+texto_BB_SG <- paste(gen_BB_SG$texto, collapse = "\n")
+texto_BB_BQ <- paste(gen_BB_BQ$texto, collapse = "\n")
+texto_SG_BQ <- paste(gen_SG_BQ$texto, collapse = "\n")
+
+texto_all   <- paste(gen_all$texto, collapse = "\n")
+
+library(ggVennDiagram)
+
+
+venn <- ggVennDiagram(
+  asv_list,
+  label = "none",        # no números
+  set_label = "none"     # <- ESTO apaga los nombres de los sitios
+) +
+  scale_fill_gradient(low = "#98F5FF", high = "#53868B") +
+  theme_void() +
+  theme(legend.position = "none") +
+  ggtitle("")
+
+venn_site_plot <- venn +
+  # títulos
+  annotate("text", x = -1, y = 4.5, label = "Bahía Buzo", size = 7) +
+  annotate("text", x =  4.5, y = 4.5, label = "San Gregorio", size = 7) +
+  annotate("text", x =  2.1, y = -8.5, label = "Buque Quemado", size = 7) +
+  
+  # regiones exclusivas
+  annotate("text", x = -3.5, y =  0.5, label = texto_BB, size = 4.5, hjust = 0, fontface = "italic") +
+  annotate("text", x =  6.0, y =  1.5, label = texto_SG, size = 4.5, hjust = 0, fontface = "italic") +
+  annotate("text", x = -0.7, y = -5.5, label = texto_BQ, size = 4.5, hjust = 0, fontface = "italic") +
+  
+  # intersecciones dobles
+  annotate("text", x =  1.0, y =  2.5, label = texto_BB_SG, size = 4.5, hjust = 0, fontface = "italic") +
+  annotate("text", x = -1.5, y = -3, label = texto_BB_BQ, size = 4.5, hjust = 0, fontface = "italic") +
+  annotate("text", x =  3, y = -3, label = texto_SG_BQ, size = 4.5, hjust = 0, fontface = "italic") +
+  
+  # intersección triple
+  annotate("text", x =  0.35, y =  -1, label = texto_all, size = 5, hjust = 0, fontface = "italic")
+
+venn_site_plot
+
 
 venn_type_plot <- venn_type_plot +
   annotate("text", x = -4, y = 7, label = "A", size = 10, fontface = "bold")
 
 venn_date_plot <- venn_date_plot +
+  annotate("text", x = -4, y = 7, label = "C", size = 10, fontface = "bold")
+
+venn_site_plot <- venn_site_plot +
   annotate("text", x = -4, y = 7, label = "B", size = 10, fontface = "bold")
 
-combined_plot <- venn_type_plot + venn_date_plot +
-  plot_layout(ncol = 2)
+combined_plot <- venn_type_plot + venn_site_plot+ venn_date_plot  + 
+  plot_layout(ncol = 3)
 
 combined_plot 
 
-#CORE + Phylogeny 
- #presence
-core_all <- bind_rows(core_August, core_March, core_apical, core_sporophylls)
 
-core_all <- core_all %>%
-  mutate(Genus_ASV = paste0(Genus, " (", ASV, ")"))
+# CORE global ----
+Bac_rel <- transform_sample_counts(Bac_16S_filt, function(x) x / sum(x))
+otu_table(Bac_rel) <- otu_table(Bac_rel, taxa_are_rows = TRUE)
 
-asv_tax <- core_all %>%
-  select(ASV, Genus_ASV) %>%
-  distinct()
+core_global <- core(Bac_rel, detection = 0.001, prevalence = 0.90)
+asv_global <- taxa_names(core_global)
 
-All_asvs <- unique(core_all$ASV)
+length(asv_global)
 
-pa_matrix <- data.frame(
-  ASV = All_asvs,
-  Apical = as.integer(All_asvs %in% core_apical$ASV),
-  Sporophylls = as.integer(All_asvs %in% core_sporophylls$ASV),
-  August = as.integer(All_asvs %in% core_August$ASV),
-  March = as.integer(All_asvs %in% core_March$ASV)
-)
+core_global_df <- as.data.frame(tax_table(core_global))
+core_global_df$ASV <- rownames(core_global_df)
 
-pa_matrix <- left_join(pa_matrix, asv_tax, by = "ASV")
+core_rel <- prune_taxa(asv_global, Bac_rel)
 
-pa_long <- pa_matrix %>%
-  pivot_longer(cols = c("xx", "xx", "xx", "xx"),#<- Sample date and type name
-               names_to = "Grupo", values_to = "Presencia")
+library(phyloseq)
+library(dplyr)
 
-genus_order <- pa_long %>%
-  group_by(Genus_ASV) %>%
-  summarize(Total = sum(Presencia)) %>%
-  arrange(desc(Total)) %>%
-  pull(Genus_ASV)
-pa_long$Grupo <- factor(pa_long$Grupo, levels = c("Apical", "Sporophylls", "August", "March"))
-
-om <- c("Psychromonas (ASV_11)","Psychromonas (ASV_19)","Psychromonas (ASV_3)","Aliivibrio (ASV_7)",
-       "Cocleimonas (ASV_33)","Leucothrix (ASV_10)","Arenicella (ASV_36)","Arenicella (ASV_6)",
-       "Psychrobium (ASV_17)","Pseudoalteromonas (ASV_22)","Thalassotalea (ASV_4)","f_Flavobacteriaceae (ASV_9)",
-       "Litorimonas (ASV_30)","Hellea (ASV_13)","Persicirhabdus (ASV_2)","Rubritalea (ASV_5)",
-        "Rubritalea (ASV_18)")
-
-pa_long$Genus_ASV <- factor(pa_long$Genus_ASV, levels = om)
-
-p_heatmap <-ggplot(pa_long, aes(x = Grupo, y = Genus_ASV, fill = factor(Presencia))) +
-  geom_tile(color = "white") +
-  scale_fill_manual(values = c("0" = "white", "1" = "#d73027"), name = "Presence") +
-  labs(x = "", y = "", title = "") +
-  theme_minimal() +
-  theme(axis.text.y = element_blank(),
-        axis.text.x = element_text(angle = 45, hjust = 1, size = 18))
+core_long <- psmelt(core_rel)
 
 
-library(ape)
-library(phangorn)
-library(Biostrings)
-library(DECIPHER)
-library(ggtree)
-library(ggnewscale)
-library(patchwork)
-#read fasta file
-fasta <- readDNAStringSet("")
-fasta
+library(dplyr)
 
-asvs_core <- unique(core_all$ASV)
-fasta_core <- fasta[names(fasta) %in% asvs_core]
-aligned <- AlignSeqs(fasta_core)
-
-#Jukes-Cantor
-dna_dist <- DistanceMatrix(aligned, correction = "JC69")
-#Neighbor Joining (NJ) method
-tree <- NJ(dna_dist)
-
-p_tree <- ggtree(tree) + 
-  geom_tiplab(size = 3) + 
-  theme_tree2()
-p_tree
-
-tax_table <- asv_tax
-
-tax_table$Taxon <- gsub(" \\(ASV_\\d+\\)$", "", tax_table$Genus_ASV)         
-tax_table$ASV_ID <- gsub("^.*\\(ASV_(\\d+)\\)$", "ASV_\\1", tax_table$Genus_ASV) 
-tax_table$Genus_ASV_italic <- ifelse(
-  grepl("^f_", tax_table$Taxon), 
-  paste0("'", tax_table$Taxon, " (", tax_table$ASV_ID, ")'"),
-  paste0("italic('", tax_table$Taxon, "')~'(ASV_", sub("ASV_", "", tax_table$ASV_ID), ")'")
-)
-
-p_tree <- ggtree(tree) %<+% tax_table +
-  geom_tiplab(aes(label = Genus_ASV_italic), 
-              size = 6, align = TRUE, linetype = "dotted", offset = 0.02,
-              parse = TRUE) +
-  theme_tree2() +
-  xlim(0, max(p_tree$data$x) * 1.3)
-p_tree
-
-p_heatmap <- ggplot(pa_long, aes(x = Grupo, y = Genus_ASV, fill = factor(Presencia))) +
-  geom_tile(color = "white") +
-  scale_fill_manual(values = c("0" = "white", "1" = "#d73027"), name = "Presence") +
-  labs(x = "", y = "Genus (ASV)", title = "") +
-  theme_minimal(base_size = 18) +
-  theme(  axis.text.y = element_blank(),   
-          axis.ticks.y = element_blank(), 
-          axis.title.y = element_blank(),
-          axis.text.x = element_text(             
-            size = 18,                            
-            color = "black",                      
-            angle = 45,                           
-            hjust = 1                            
-          )
+core_long <- core_long %>%
+  mutate(
+    OTU = as.factor(OTU),
+    Type = as.factor(Type),
+    Date = as.factor(Date),
+    Site = as.factor(Site),
+    Abundance = as.numeric(Abundance)
   )
+core_type_sum <- core_long %>%
+  group_by(Type, OTU) %>%
+  summarise(mean_abund = mean(Abundance), .groups = "drop")
 
-p_final <- p_tree + p_heatmap + plot_layout(ncol = 2, widths = c(9, 0.8))  
-p_final
+core_date_sum <- core_long %>%
+  group_by(Date, OTU) %>%
+  summarise(mean_abund = mean(Abundance), .groups = "drop")
+
+core_site_sum <- core_long %>%
+  group_by(Site, OTU) %>%
+  summarise(mean_abund = mean(Abundance), .groups = "drop")
+
+Ty <- ggplot(core_type_sum, aes(x = Type, y = mean_abund, fill = OTU)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  labs(y = "Mean relative abundance", x = "Blade type", fill = "Core ASVs")
+Da <- ggplot(core_date_sum, aes(x = Date, y = mean_abund, fill = OTU)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  labs(y = "Mean relative abundance", x = "Sampling date", fill = "Core ASVs")
+Si <- ggplot(core_site_sum, aes(x = Site, y = mean_abund, fill = OTU)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+  labs(y = "Mean relative abundance", x = "Site", fill = "Core ASVs")
+library(ggplot2)
+library(patchwork)
+
+Cor <- Ty + Si + Da
+Cor
+
+
 
